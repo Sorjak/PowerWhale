@@ -29,7 +29,6 @@ var mainLoop = function() {
 
     game.update(PIXI.ticker.shared.deltaTime);
 
-
     RENDERER.render(STAGE);
 }
 
