@@ -1,11 +1,9 @@
-var Entity = require("./entity.js");
-var Vector2 = require("./vector2.js");
+var Entity = require("./entity.js"),
+    Body   = require('matter-js').Body;
 
 function Player(width, height, name) {
     Entity.call(this, width, height);
-    
-    this.position = new Vector2(0, 0);
-    this.velocity = new Vector2(.2, .2);
+
     this.name = name;
 }
 
@@ -17,34 +15,36 @@ Player.prototype.init = function(stage) {
 
     return Entity.prototype.init.call(this, stage, "../images/whale_blue.png")
     .then(function() {
-        self.sprite.position = new PIXI.Point(400, 300);
+        Body.translate(self.body, {x: 300, y: 400});
     });
 };
 
 Player.prototype.update = function(deltaTime) {
     var self = this;
 
-    if (self.rotating) {
-        self.sprite.rotation += deltaTime * .05;
-    }
 
-    // self.sprite.position = new PIXI.Point(self.position.x, self.position.y);
     Entity.prototype.update.call(self, deltaTime);
 };
 
 Player.prototype.onDown = function(event) {
+    var self = this;
 
-    this.rotating = true;
+    console.log(event);
+    console.log(self.body.position);
 
-    // self.sprite.position = new PIXI.Point(self.position.x, self.position.y);
+    var forceMagnitude = 0.001 * self.body.mass;
+
+    // Body.applyForce(self.body, {x : 0, y: 0}, { 
+    //     x: forceMagnitude, 
+    //     y: -forceMagnitude
+    // });
+
     Entity.prototype.onDown.call(self, event);
 };
 
 Player.prototype.onUp = function(event) {
+    var self = this;
 
-
-    this.rotating = false;
-    // self.sprite.position = new PIXI.Point(self.position.x, self.position.y);
     Entity.prototype.onUp.call(self, event);
 };
 

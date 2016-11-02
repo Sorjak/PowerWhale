@@ -13,6 +13,10 @@ module.exports = {
     filename: 'app.bundle.js'
   },
 
+  include: [
+    path.resolve(__dirname, 'node_modules/matter-js'),
+  ],
+
   module: {
     loaders: [
       {

@@ -1,6 +1,12 @@
+var Bodies = require('matter-js').Bodies,
+    Body   = require('matter-js').Body;
+
 function Entity(width, height) {
-    this.width = width;
+    this.width  = width;
     this.height = height;
+
+    this.sprite = null;
+    this.body   = null;
 }
 
 // PUBLIC METHODS
@@ -18,12 +24,19 @@ Entity.prototype.init = function(stage, image_path) {
 
         stage.addChild(self.sprite);
 
+        self.body = Bodies.circle(
+            self.sprite.position.x, self.sprite.position.y, self.sprite.height * .5
+        );
+
         resolve(true);
     });
 };
 
 Entity.prototype.update = function(deltaTime) {
+    var self = this;
 
+    self.sprite.position = self.body.position;
+    self.sprite.rotation = self.body.angle;
 };
 
 Entity.prototype.onDown = function(event) {
