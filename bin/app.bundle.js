@@ -50,8 +50,6 @@
 	var GAME_WIDTH = 800;
 	var GAME_HEIGHT = 600;
 
-	var game = new Game(GAME_WIDTH, GAME_HEIGHT);
-
 	var rendererOptions = {
 	    antialiasing: true,
 	    transparent: false,
@@ -62,11 +60,7 @@
 
 	$("#pixi-canvas").append(RENDERER.view);
 
-	var STAGE = new PIXI.Container();
-	var background = new PIXI.Graphics();
-	background.beginFill(0x111111);
-	background.drawRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-	STAGE.addChild(background);
+	var game = new Game(GAME_WIDTH, GAME_HEIGHT);
 
 	var animFrame = null;
 
@@ -75,8 +69,7 @@
 
 	    game.update(PIXI.ticker.shared.deltaTime);
 
-
-	    RENDERER.render(STAGE);
+	    RENDERER.render(game.stage);
 	}
 
 
@@ -114,31 +107,322 @@
 
 /***/ },
 /* 2 */
-/***/ function(module, exports) {
+/***/ function(module, exports, __webpack_require__) {
 
-	
+	var Player = __webpack_require__(4);
+
+
 	function Game(width, height) {
 	    this.width = width;
 	    this.height = height;
 
+	    this.stage = null;
 
+	    this.entities = [];
 	}
 
 	Game.prototype.start = function() {
-	    var prom = new Promise(function(resolve, reject) {
-	        console.log('new game start');
+	    var self = this;
+
+	    return new Promise(function(resolve, reject) {
+	        self.stage = new PIXI.Container();
+	        var background = new PIXI.Graphics();
+	        background.beginFill(0x111111);
+	        background.drawRect(0, 0, self.width, self.height);
+	        self.stage.addChild(background);
+
+	        var player = new Player(20, 20, "Jimmy");
+	        player.init(self.stage).then(function() {
+	            self.entities.push(player);
+	        });
+	        
 	        resolve(true);
 
 	    });
-
-	    return prom;
 	};
 
-	Game.prototype.update = function(timeDelta) {
-	    console.log("Updating");
+	Game.prototype.update = function(deltaTime) {
+	    for (var i = this.entities.length - 1; i >= 0; i--) {
+	        var e = this.entities[i];
+	        e.update(deltaTime);
+	    };
 	};
 
 	module.exports = Game;
+
+/***/ },
+/* 3 */
+/***/ function(module, exports) {
+
+	function Entity(width, height) {
+	    this.width = width;
+	    this.height = height;
+	}
+
+	// PUBLIC METHODS
+
+	Entity.prototype.init = function(stage, image_path) {
+	    var self = this;
+
+	    return new Promise(function(resolve, reject) {
+
+	        self.sprite = new PIXI.Sprite.fromImage(image_path);
+	        self.sprite.anchor = new PIXI.Point(.5, .5);
+	        self.sprite.interactive = true;
+
+	        self._bindListeners();
+
+	        stage.addChild(self.sprite);
+
+	        resolve(true);
+	    });
+	};
+
+	Entity.prototype.update = function(deltaTime) {
+
+	};
+
+	Entity.prototype.onDown = function(event) {
+	    console.log(event);
+	};
+
+	Entity.prototype.onUp = function(event) {
+	    console.log(event);
+	};
+
+	// PRIVATE METHODS
+
+	Entity.prototype._bindListeners = function () {
+	    var self = this;
+
+	    this.sprite.on('mousedown', function(e) {
+	        self.onDown(e);
+	    });
+	    this.sprite.on('touchstart', function(e) {
+	        self.onDown(e);
+	    });
+
+	    this.sprite.on('mouseup', function(e) {
+	        self.onUp(e);
+	    });
+	};
+
+	module.exports = Entity;
+
+/***/ },
+/* 4 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var Entity = __webpack_require__(3);
+	var Vector2 = __webpack_require__(5);
+
+	function Player(width, height, name) {
+	    Entity.call(this, width, height);
+	    
+	    this.position = new Vector2(0, 0);
+	    this.velocity = new Vector2(.2, .2);
+	    this.name = name;
+	}
+
+	Player.prototype = Object.create(Entity.prototype);
+	Player.prototype.constructor = Player;
+
+	Player.prototype.init = function(stage) {
+	    var self = this;
+
+	    return Entity.prototype.init.call(this, stage, "../images/whale_blue.png")
+	    .then(function() {
+	        self.sprite.position = new PIXI.Point(400, 300);
+	    });
+	};
+
+	Player.prototype.update = function(deltaTime) {
+	    var self = this;
+
+	    if (self.rotating) {
+	        self.sprite.rotation += deltaTime * .05;
+	    }
+
+	    // self.sprite.position = new PIXI.Point(self.position.x, self.position.y);
+	    Entity.prototype.update.call(self, deltaTime);
+	};
+
+	Player.prototype.onDown = function(event) {
+
+	    this.rotating = true;
+
+	    // self.sprite.position = new PIXI.Point(self.position.x, self.position.y);
+	    Entity.prototype.onDown.call(self, event);
+	};
+
+	Player.prototype.onUp = function(event) {
+
+
+	    this.rotating = false;
+	    // self.sprite.position = new PIXI.Point(self.position.x, self.position.y);
+	    Entity.prototype.onUp.call(self, event);
+	};
+
+	module.exports = Player;
+
+/***/ },
+/* 5 */
+/***/ function(module, exports) {
+
+	/*
+	 * @class Vector2
+	 * @constructor 
+	 * @param x {Number} position of the point
+	 * @param y {Number} position of the point
+	 */
+	Vector2 = function(x, y)
+	{
+	    /**
+	     * @property x 
+	     * @type Number
+	     * @default 0
+	     */
+	    this.x = x || 0;
+
+	    /**
+	     * @property y
+	     * @type Number
+	     * @default 0
+	     */
+	    this.y = y || 0;
+	};
+
+	/**
+	 * Creates a clone of this point
+	 *
+	 * @method clone
+	 * @return {Vector2} a copy of the point
+	 */
+	Vector2.prototype.clone = function()
+	{
+	    return new Vector2(this.x, this.y);
+	};
+
+	Vector2.prototype.add = function(v) {
+	    this.x += v.x;
+	    this.y += v.y;
+	    return this;
+	};
+
+	Vector2.prototype.sub = function(v) {
+	    this.x -= v.x;
+	    this.y -= v.y;
+	    return this;
+	};
+
+	Vector2.prototype.invert = function() {
+	    this.x *= -1;
+	    this.y *= -1;
+	    return this;
+	};
+
+	Vector2.prototype.multiplyScalar = function(s) {
+	    this.x *= s;
+	    this.y *= s;
+	    return this;
+	};
+
+	Vector2.prototype.divideScalar = function(s) {
+	    if(s === 0) {
+	        this.x = 0;
+	        this.y = 0;
+	    } else {
+	        var invScalar = 1 / s;
+	        this.x *= invScalar;
+	        this.y *= invScalar;
+	    }
+	    return this;
+	};
+
+	Vector2.prototype.dot = function(v) {
+	    return this.x * v.x + this.y * v.y;
+	};
+
+	Vector2.prototype.length = function(v) {
+	    return Math.sqrt(this.x * this.x + this.y * this.y);
+	};
+
+	Vector2.prototype.lengthSq = function() {
+	    return this.x * this.x + this.y * this.y;
+	};
+
+	Vector2.prototype.normalize = function() {
+	    return this.divideScalar(this.length());
+	};
+
+	Vector2.prototype.distanceTo = function(v) {
+	    return Math.sqrt(this.distanceToSq(v));
+	};
+
+	Vector2.prototype.distanceToSq = function(v) {
+	    var dx = this.x - v.x, dy = this.y - v.y;
+	    return dx * dx + dy * dy;
+	};
+
+	Vector2.prototype.set = function(x, y) {
+	    this.x = x;
+	    this.y = y;
+	    return this;
+	};
+
+	Vector2.prototype.setX = function(x) {
+	    this.x = x;
+	    return this;
+	};
+
+	Vector2.prototype.setY = function(y) {
+	    this.y = y;
+	    return this;
+	};
+
+	Vector2.prototype.setLength = function(l) {
+	    var oldLength = this.length();
+	    if(oldLength !== 0 && l !== oldLength) {
+	        this.multiplyScalar(l / oldLength);
+	    }
+	    return this;
+	};
+
+	Vector2.prototype.invert = function(v) {
+	    this.x *= -1;
+	    this.y *= -1;
+	    return this;
+	};
+
+	Vector2.prototype.lerp = function(v, alpha) {
+	    this.x += (v.x - this.x) * alpha;
+	    this.y += (v.y - this.y) * alpha;
+	    return this;
+	};
+
+	Vector2.prototype.rad = function() {
+	    return Math.atan2(this.x, this.y);
+	};
+
+	Vector2.prototype.deg = function() {
+	    return this.rad() * 180 / Math.PI;
+	};
+
+	Vector2.prototype.equals = function(v) {
+	    return this.x === v.x && this.y === v.y;
+	};
+
+	Vector2.prototype.rotate = function(theta) {
+	    var xtemp = this.x;
+	    this.x = this.x * Math.cos(theta) - this.y * Math.sin(theta);
+	    this.y = xtemp * Math.sin(theta) + this.y * Math.cos(theta);
+	    return this;
+	};
+
+	// constructor
+	Vector2.prototype.constructor = Vector2;
+
+	module.exports = Vector2;
 
 /***/ }
 /******/ ]);
