@@ -1,12 +1,11 @@
 var Bodies = require('matter-js').Bodies,
     Body   = require('matter-js').Body;
 
-function Entity(width, height) {
-    this.width  = width;
-    this.height = height;
-
+function Entity() {
     this.sprite = null;
     this.body   = null;
+
+    this.tags = [];
 }
 
 // PUBLIC METHODS
@@ -24,8 +23,8 @@ Entity.prototype.init = function(stage, image_path) {
 
         stage.addChild(self.sprite);
 
-        self.body = Bodies.circle(
-            self.sprite.position.x, self.sprite.position.y, self.sprite.height * .5
+        self.body = Bodies.rectangle(
+            0, 0, self.sprite.width, self.sprite.height
         );
 
         resolve(true);
@@ -39,13 +38,9 @@ Entity.prototype.update = function(deltaTime) {
     self.sprite.rotation = self.body.angle;
 };
 
-Entity.prototype.onDown = function(event) {
-    console.log(event);
-};
+Entity.prototype.onDown = function(event) {};
 
-Entity.prototype.onUp = function(event) {
-    console.log(event);
-};
+Entity.prototype.onUp = function(event) {};
 
 // PRIVATE METHODS
 

@@ -9653,21 +9653,20 @@
 	        self.world.gravity.y = 0;
 
 	        self.stage = new PIXI.Container();
+	        self.stage.interactive = true;
+
+	        self._bindListeners();
+
 	        var background = new PIXI.Graphics();
 	        background.beginFill(0x111111);
 	        background.drawRect(0, 0, self.width, self.height);
 	        self.stage.addChild(background);
 
-
-
-	        var player = new Player(20, 20, "Jimmy");
+	        var player = new Player();
 	        player.init(self.stage).then(function() {
 	            self.entities.push(player);
 	            World.addBody(self.world, player.body);
-	            console.log(player);
 	        });
-
-
 
 	        resolve(true);
 
@@ -9681,6 +9680,48 @@
 	    };
 	};
 
+	Game.prototype.onDown = function(event) {
+	    var self = this;
+	    // Check if we are the target of the click.
+	    if (event.data.target.parent == null) {
+	        var player = self.getEntitiesByTag("player")[0];
+	        player.follow(event.data.global);
+	    }
+	};
+
+	Game.prototype.onUp = function(event) {
+
+	};
+
+	Game.prototype.getEntitiesByTag = function(tag) {
+	    var output = [];
+	    for (var i = this.entities.length - 1; i >= 0; i--) {
+	        var entity = this.entities[i];
+
+	        if (entity.tags.includes(tag)) {
+	            output.push(entity);
+	        }
+	    }
+
+	    return output;
+	};
+
+	Game.prototype._bindListeners = function() {
+	    var self = this;
+
+	    this.stage.on('mousedown', function(e) {
+	        self.onDown(e);
+	    });
+	    this.stage.on('touchstart', function(e) {
+	        self.onDown(e);
+	    });
+
+	    this.stage.on('mouseup', function(e) {
+	        self.onUp(e);
+	    });
+	}
+
+
 
 
 	module.exports = Game;
@@ -9690,12 +9731,13 @@
 /***/ function(module, exports, __webpack_require__) {
 
 	var Entity = __webpack_require__(34),
-	    Body   = __webpack_require__(2).Body;
+	    Body   = __webpack_require__(2).Body,
+	    Vector = __webpack_require__(2).Vector;
 
-	function Player(width, height, name) {
-	    Entity.call(this, width, height);
+	function Player() {
+	    Entity.call(this);
 
-	    this.name = name;
+	    this.tags.push("player");
 	}
 
 	Player.prototype = Object.create(Entity.prototype);
@@ -9720,15 +9762,18 @@
 	Player.prototype.onDown = function(event) {
 	    var self = this;
 
-	    console.log(event);
-	    console.log(self.body.position);
+	    var rawMousePos = event.data.global;
 
-	    var forceMagnitude = 0.001 * self.body.mass;
+	    var localX = self.body.position.x - rawMousePos.x;
+	    var localY = self.body.position.y - rawMousePos.y;
+	    var worldMouse = { x : self.body.position.x + localX, y : self.body.position.y + localY};
 
-	    // Body.applyForce(self.body, {x : 0, y: 0}, { 
-	    //     x: forceMagnitude, 
-	    //     y: -forceMagnitude
-	    // });
+	    var forceMagnitude = 0.009 * self.body.mass;
+
+	    var normalForce = Vector.normalise(Vector.sub(worldMouse, self.body.position));
+	    var finalForce = Vector.mult(normalForce, forceMagnitude);
+
+	    Body.applyForce(self.body, worldMouse, finalForce);
 
 	    Entity.prototype.onDown.call(self, event);
 	};
@@ -9737,6 +9782,22 @@
 	    var self = this;
 
 	    Entity.prototype.onUp.call(self, event);
+	};
+
+	Player.prototype.follow = function(target) {
+	    var self = this;
+
+	    var vecToTarget = Vector.normalise( Vector.sub(target, self.body.position) );
+	    var angleVector = Vector.normalise( {x: Math.cos(self.body.angle), y: Math.sin(self.body.angle)} );
+	    var headingVector = Vector.normalise(Vector.add(self.body.position, angleVector));
+
+	    // var angleDelta = headingVector vecToTarget;
+
+	    var tailVector = Vector.add( self.body.position, Vector.neg(vecToTarget) );
+
+	    // console.log( angleDelta);
+	    Body.applyForce(self.body, tailVector, Vector.mult(vecToTarget, self.body.mass * 0.009) )
+
 	};
 
 	module.exports = Player;
@@ -9748,12 +9809,11 @@
 	var Bodies = __webpack_require__(2).Bodies,
 	    Body   = __webpack_require__(2).Body;
 
-	function Entity(width, height) {
-	    this.width  = width;
-	    this.height = height;
-
+	function Entity() {
 	    this.sprite = null;
 	    this.body   = null;
+
+	    this.tags = [];
 	}
 
 	// PUBLIC METHODS
@@ -9771,8 +9831,8 @@
 
 	        stage.addChild(self.sprite);
 
-	        self.body = Bodies.circle(
-	            self.sprite.position.x, self.sprite.position.y, self.sprite.height * .5
+	        self.body = Bodies.rectangle(
+	            0, 0, self.sprite.width, self.sprite.height
 	        );
 
 	        resolve(true);
@@ -9786,13 +9846,9 @@
 	    self.sprite.rotation = self.body.angle;
 	};
 
-	Entity.prototype.onDown = function(event) {
-	    console.log(event);
-	};
+	Entity.prototype.onDown = function(event) {};
 
-	Entity.prototype.onUp = function(event) {
-	    console.log(event);
-	};
+	Entity.prototype.onUp = function(event) {};
 
 	// PRIVATE METHODS
 
