@@ -1,5 +1,6 @@
 var Bodies = require('matter-js').Bodies,
-    Body   = require('matter-js').Body;
+    Body   = require('matter-js').Body
+    Vector = require('matter-js').Vector;
 
 function Entity() {
     this.sprite = null;
@@ -14,7 +15,6 @@ Entity.prototype.init = function(stage, image_path) {
     var self = this;
 
     return new Promise(function(resolve, reject) {
-
         self.sprite = new PIXI.Sprite.fromImage(image_path);
         self.sprite.anchor = new PIXI.Point(.5, .5);
         self.sprite.interactive = true;
@@ -41,6 +41,11 @@ Entity.prototype.update = function(deltaTime) {
 Entity.prototype.onDown = function(event) {};
 
 Entity.prototype.onUp = function(event) {};
+
+
+Entity.prototype.getFacingVector = function() {
+    return Vector.normalise( {x: Math.sin(this.body.angle), y: -Math.cos(this.body.angle)} );
+};
 
 // PRIVATE METHODS
 

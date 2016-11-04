@@ -9732,12 +9732,14 @@
 
 	var Entity = __webpack_require__(34),
 	    Body   = __webpack_require__(2).Body,
-	    Vector = __webpack_require__(2).Vector;
+	    Vector = __webpack_require__(2).Vector
+	    PIXI   = __webpack_require__(1);
 
 	function Player() {
 	    Entity.call(this);
 
 	    this.tags.push("player");
+	    this.target = null;
 	}
 
 	Player.prototype = Object.create(Entity.prototype);
@@ -9749,12 +9751,30 @@
 	    return Entity.prototype.init.call(this, stage, "../images/whale_blue.png")
 	    .then(function() {
 	        Body.translate(self.body, {x: 300, y: 400});
+
+	        self.info = new PIXI.Graphics();
+	        stage.addChild(self.info);
+	        
 	    });
 	};
 
 	Player.prototype.update = function(deltaTime) {
 	    var self = this;
 
+	    if (self.target != null) {
+	        var vecToTarget = Vector.sub(self.target, self.body.position);
+	        var targetDir = Vector.normalise(vecToTarget);
+	        var facingVector = self.getFacingVector();
+
+	        var currentAngle = Math.atan2(facingVector.y, facingVector.x);
+	        var targetAngle = Math.atan2(targetDir.y, targetDir.x);
+
+	        var angleDelta = targetAngle - currentAngle;
+
+	        // TODO: ADD LERP
+
+	        Body.rotate(self.body, angleDelta);
+	    }
 
 	    Entity.prototype.update.call(self, deltaTime);
 	};
@@ -9787,16 +9807,11 @@
 	Player.prototype.follow = function(target) {
 	    var self = this;
 
-	    var vecToTarget = Vector.normalise( Vector.sub(target, self.body.position) );
-	    var angleVector = Vector.normalise( {x: Math.cos(self.body.angle), y: Math.sin(self.body.angle)} );
-	    var headingVector = Vector.normalise(Vector.add(self.body.position, angleVector));
+	    self.target = Vector.clone(target);
+	    var targetDir = Vector.normalise( Vector.sub(target, self.body.position) );
 
-	    // var angleDelta = headingVector vecToTarget;
-
-	    var tailVector = Vector.add( self.body.position, Vector.neg(vecToTarget) );
-
-	    // console.log( angleDelta);
-	    Body.applyForce(self.body, tailVector, Vector.mult(vecToTarget, self.body.mass * 0.009) )
+	    var tailPoint = Vector.add( self.body.position, Vector.mult(Vector.neg(targetDir), 10) );
+	    Body.applyForce(self.body, tailPoint, Vector.mult(targetDir, self.body.mass * 0.009) );
 
 	};
 
@@ -9807,7 +9822,8 @@
 /***/ function(module, exports, __webpack_require__) {
 
 	var Bodies = __webpack_require__(2).Bodies,
-	    Body   = __webpack_require__(2).Body;
+	    Body   = __webpack_require__(2).Body
+	    Vector = __webpack_require__(2).Vector;
 
 	function Entity() {
 	    this.sprite = null;
@@ -9822,7 +9838,6 @@
 	    var self = this;
 
 	    return new Promise(function(resolve, reject) {
-
 	        self.sprite = new PIXI.Sprite.fromImage(image_path);
 	        self.sprite.anchor = new PIXI.Point(.5, .5);
 	        self.sprite.interactive = true;
@@ -9849,6 +9864,11 @@
 	Entity.prototype.onDown = function(event) {};
 
 	Entity.prototype.onUp = function(event) {};
+
+
+	Entity.prototype.getFacingVector = function() {
+	    return Vector.normalise( {x: Math.sin(this.body.angle), y: -Math.cos(this.body.angle)} );
+	};
 
 	// PRIVATE METHODS
 

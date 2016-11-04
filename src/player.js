@@ -1,11 +1,13 @@
 var Entity = require("./entity.js"),
     Body   = require('matter-js').Body,
-    Vector = require('matter-js').Vector;
+    Vector = require('matter-js').Vector
+    PIXI   = require('pixi.js');
 
 function Player() {
     Entity.call(this);
 
     this.tags.push("player");
+    this.target = null;
 }
 
 Player.prototype = Object.create(Entity.prototype);
@@ -17,12 +19,30 @@ Player.prototype.init = function(stage) {
     return Entity.prototype.init.call(this, stage, "../images/whale_blue.png")
     .then(function() {
         Body.translate(self.body, {x: 300, y: 400});
+
+        self.info = new PIXI.Graphics();
+        stage.addChild(self.info);
+        
     });
 };
 
 Player.prototype.update = function(deltaTime) {
     var self = this;
 
+    if (self.target != null) {
+        var vecToTarget = Vector.sub(self.target, self.body.position);
+        var targetDir = Vector.normalise(vecToTarget);
+        var facingVector = self.getFacingVector();
+
+        var currentAngle = Math.atan2(facingVector.y, facingVector.x);
+        var targetAngle = Math.atan2(targetDir.y, targetDir.x);
+
+        var angleDelta = targetAngle - currentAngle;
+
+        // TODO: ADD LERP
+
+        Body.rotate(self.body, angleDelta);
+    }
 
     Entity.prototype.update.call(self, deltaTime);
 };
@@ -55,16 +75,11 @@ Player.prototype.onUp = function(event) {
 Player.prototype.follow = function(target) {
     var self = this;
 
-    var vecToTarget = Vector.normalise( Vector.sub(target, self.body.position) );
-    var angleVector = Vector.normalise( {x: Math.cos(self.body.angle), y: Math.sin(self.body.angle)} );
-    var headingVector = Vector.normalise(Vector.add(self.body.position, angleVector));
+    self.target = Vector.clone(target);
+    var targetDir = Vector.normalise( Vector.sub(target, self.body.position) );
 
-    // var angleDelta = headingVector vecToTarget;
-
-    var tailVector = Vector.add( self.body.position, Vector.neg(vecToTarget) );
-
-    // console.log( angleDelta);
-    Body.applyForce(self.body, tailVector, Vector.mult(vecToTarget, self.body.mass * 0.009) )
+    var tailPoint = Vector.add( self.body.position, Vector.mult(Vector.neg(targetDir), 10) );
+    Body.applyForce(self.body, tailPoint, Vector.mult(targetDir, self.body.mass * 0.009) );
 
 };
 
