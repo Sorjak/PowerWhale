@@ -46,7 +46,6 @@
 
 	var PIXI = __webpack_require__(1),
 	    Engine = __webpack_require__(2).Engine;
-	    // World  = require("matter-js").World;
 
 	var Game = __webpack_require__(32);
 
@@ -65,8 +64,7 @@
 
 	$("#pixi-canvas").append(RENDERER.view);
 
-	var game = new Game(engine.world);
-
+	var game = new Game(RENDERER, engine.world, GAME_WIDTH, GAME_HEIGHT);
 	var animFrame = null;
 
 	var mainLoop = function() {
@@ -9626,50 +9624,77 @@
 /* 32 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var Player  = __webpack_require__(33);
 	var World   = __webpack_require__(2).World;
 
-	function Game(world) {
-	    console.log(world);
-	    this.width = world.bounds.max.x - world.bounds.min.x;
-	    this.height = world.bounds.max.y - world.bounds.min.y;
+	var Player  = __webpack_require__(33),
+	    Whale   = __webpack_require__(37),
+	    Camera  = __webpack_require__(36),
+	    Chunk   = __webpack_require__(38);
 
-	    world.bounds.min.x = -300;
-	    world.bounds.min.y = -300;
-	    world.bounds.max.x = 1100;
-	    world.bounds.max.y = 900;
+	function Game(renderer, world, width, height) {
+	    this.camera = null;
+	    this.renderer = renderer;
+
+	    world.bounds.min.x = -Math.Infinity;
+	    world.bounds.min.y = -Math.Infinity;
+	    world.bounds.max.x = Math.Infinity;
+	    world.bounds.max.y = Math.Infinity;
+
+	    this.width = width;
+	    this.height = height;
 
 	    this.stage = null;
 	    this.world = world;
 
 	    this.entities = [];
-
 	}
 
 	Game.prototype.start = function() {
 	    var self = this;
 
-	    return new Promise(function(resolve, reject) {
-	        self.world.gravity.y = 0;
+	    self.world.gravity.y = 0;
 
-	        self.stage = new PIXI.Container();
-	        self.stage.interactive = true;
+	    self.stage = new PIXI.Container();
+	    self.stage.interactive = true;
+	    self.camera = new Camera(self);
 
-	        self._bindListeners();
+	    self._bindListeners();
+	    var chunkPromises = [];
+	    for (var i = 0; i < 2; i++) {
+	        for (var j = 0; j < 2; j++) {
+	            var chunk = new Chunk(
+	                {x: i, y: j},
+	                {x : self.width, y: self.height}
+	            );
+	            var prom = chunk.generate(self.renderer);
+	            chunkPromises.push(prom);
+	        }
+	    }
 
-	        var background = new PIXI.Graphics();
-	        background.beginFill(0x111111);
-	        background.drawRect(0, 0, self.width, self.height);
-	        self.stage.addChild(background);
+	    return Promise.all(chunkPromises).then(function(chunks) {
+	        for (var i = chunks.length - 1; i >= 0; i--) {
+	            console.log(chunks[i].position);
+	            self.stage.addChild(chunks[i]);
+	        }
+
+	        self.targetPoint = new PIXI.Graphics();
+	        self.stage.addChild(self.targetPoint);
+
+	        var whale = new Whale({x: 200, y: 300});
+	        whale.init(self.stage).then(function() {
+	            self.entities.push(whale);
+	            World.addBody(self.world, whale.body);
+	        });
 
 	        var player = new Player();
 	        player.init(self.stage).then(function() {
 	            self.entities.push(player);
 	            World.addBody(self.world, player.body);
+	            self.camera.followEntity(player);
 	        });
 
-	        resolve(true);
-
+	        console.log(self.stage.width);
+	        return true;
 	    });
 	};
 
@@ -9678,19 +9703,48 @@
 	        var e = this.entities[i];
 	        e.update(deltaTime);
 	    };
+
+	    this.camera.update(deltaTime);
 	};
 
 	Game.prototype.onDown = function(event) {
 	    var self = this;
 	    // Check if we are the target of the click.
 	    if (event.data.target.parent == null) {
-	        var player = self.getEntitiesByTag("player")[0];
-	        player.follow(event.data.global);
+	        var drawPoint = self.camera.screenToWorld(event.data.global);
+	        var whale = self.getEntitiesByTag("whale")[0];
+
+	        whale.follow(drawPoint);
+
+	        self.targetPoint.clear();
+	        self.targetPoint.beginFill(0xFF0000, 1);
+	        self.targetPoint.drawCircle(drawPoint.x, drawPoint.y, 5);
+	        self.targetPoint.endFill();
 	    }
 	};
 
 	Game.prototype.onUp = function(event) {
 
+	};
+
+	Game.prototype.onKeyDown = function(event) {
+	    var player = this.getEntitiesByTag("player")[0];
+	    if (event.keyCode == 87) { // W
+	        player.move({x: 0, y: -1});
+	    }
+	    else if (event.keyCode == 65) { // A
+	        player.move({x: -1, y: 0});
+	    }    
+	    else if (event.keyCode == 68) { // D
+	        player.move({x: 1, y: 0});
+	    }
+	    else if (event.keyCode == 83) { // S
+	        player.move({x: 0, y: 1});
+	    }    
+	};
+
+	Game.prototype.onKeyUp = function(event) {
+	    // body...
 	};
 
 	Game.prototype.getEntitiesByTag = function(tag) {
@@ -9719,10 +9773,29 @@
 	    this.stage.on('mouseup', function(e) {
 	        self.onUp(e);
 	    });
+
+	    window.addEventListener(
+	        "keydown", self.onKeyDown.bind(this), false
+	    );
+	    window.addEventListener(
+	        "keyup", self.onKeyUp.bind(this), false
+	    );
 	}
 
+	Game.prototype._createStars = function(num_stars) {
+	    var self = this;
 
-
+	    var star_container = new PIXI.Graphics();
+	    star_container.clear();
+	    star_container.beginFill(0xFFFFFF, 1);
+	    for (var i = 0; i < num_stars; i++) {
+	        var x = Math.floor(Math.random() * self.width);
+	        var y = Math.floor(Math.random() * self.height);
+	        star_container.drawCircle(x, y, Math.random() * 4);
+	    };
+	    star_container.endFill();
+	    return star_container;
+	}
 
 	module.exports = Game;
 
@@ -9730,27 +9803,36 @@
 /* 33 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var Entity = __webpack_require__(34),
-	    Body   = __webpack_require__(2).Body,
-	    Vector = __webpack_require__(2).Vector
-	    PIXI   = __webpack_require__(1);
+	var Entity  = __webpack_require__(34),
+	    Util    = __webpack_require__(35),
+	    PIXI    = __webpack_require__(1);
+
+	var Body    = __webpack_require__(2).Body,
+	    Bodies  = __webpack_require__(2).Bodies,
+	    Vector  = __webpack_require__(2).Vector,
+	    Common  = __webpack_require__(2).Common;
 
 	function Player() {
 	    Entity.call(this);
 
 	    this.tags.push("player");
-	    this.target = null;
 	}
 
 	Player.prototype = Object.create(Entity.prototype);
 	Player.prototype.constructor = Player;
 
+	// OVERRIDES
+
 	Player.prototype.init = function(stage) {
 	    var self = this;
 
-	    return Entity.prototype.init.call(this, stage, "../images/whale_blue.png")
+	    return Entity.prototype.init.call(this, stage, "../images/astronaut-white.png")
 	    .then(function() {
-	        Body.translate(self.body, {x: 300, y: 400});
+	        // Body.translate(self.body, {x: stage.width / 2, y: stage.height / 2});
+
+	        self.body = Bodies.circle(
+	            800, 600, 32
+	        );
 
 	        self.info = new PIXI.Graphics();
 	        stage.addChild(self.info);
@@ -9761,39 +9843,11 @@
 	Player.prototype.update = function(deltaTime) {
 	    var self = this;
 
-	    if (self.target != null) {
-	        var vecToTarget = Vector.sub(self.target, self.body.position);
-	        var targetDir = Vector.normalise(vecToTarget);
-	        var facingVector = self.getFacingVector();
-
-	        var currentAngle = Math.atan2(facingVector.y, facingVector.x);
-	        var targetAngle = Math.atan2(targetDir.y, targetDir.x);
-
-	        var angleDelta = targetAngle - currentAngle;
-
-	        // TODO: ADD LERP
-
-	        Body.rotate(self.body, angleDelta);
-	    }
-
 	    Entity.prototype.update.call(self, deltaTime);
 	};
 
 	Player.prototype.onDown = function(event) {
 	    var self = this;
-
-	    var rawMousePos = event.data.global;
-
-	    var localX = self.body.position.x - rawMousePos.x;
-	    var localY = self.body.position.y - rawMousePos.y;
-	    var worldMouse = { x : self.body.position.x + localX, y : self.body.position.y + localY};
-
-	    var forceMagnitude = 0.009 * self.body.mass;
-
-	    var normalForce = Vector.normalise(Vector.sub(worldMouse, self.body.position));
-	    var finalForce = Vector.mult(normalForce, forceMagnitude);
-
-	    Body.applyForce(self.body, worldMouse, finalForce);
 
 	    Entity.prototype.onDown.call(self, event);
 	};
@@ -9804,15 +9858,13 @@
 	    Entity.prototype.onUp.call(self, event);
 	};
 
-	Player.prototype.follow = function(target) {
+	// LOCAL
+
+	Player.prototype.move = function(vector) {
 	    var self = this;
+	    var thrustPoint = Vector.add(self.body.position, Vector.neg(vector));
 
-	    self.target = Vector.clone(target);
-	    var targetDir = Vector.normalise( Vector.sub(target, self.body.position) );
-
-	    var tailPoint = Vector.add( self.body.position, Vector.mult(Vector.neg(targetDir), 10) );
-	    Body.applyForce(self.body, tailPoint, Vector.mult(targetDir, self.body.mass * 0.009) );
-
+	    Body.applyForce(self.body, thrustPoint, Vector.mult(vector, self.body.mass * .001));
 	};
 
 	module.exports = Player;
@@ -9847,7 +9899,7 @@
 	        stage.addChild(self.sprite);
 
 	        self.body = Bodies.rectangle(
-	            0, 0, self.sprite.width, self.sprite.height
+	            0, 0, 64, 64
 	        );
 
 	        resolve(true);
@@ -9888,6 +9940,248 @@
 	};
 
 	module.exports = Entity;
+
+/***/ },
+/* 35 */
+/***/ function(module, exports) {
+
+	var Util = {
+		lerp : function(a, b, t) {
+			return a + t * (b - a);
+		}
+	}
+
+	module.exports = Util;
+
+/***/ },
+/* 36 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var PIXI = __webpack_require__(1),
+	    Comp = __webpack_require__(2).Composite,
+	    World = __webpack_require__(2).World,
+	    Vector = __webpack_require__(2).Vector;
+
+	function Camera(game) {
+	    var self = this;
+
+	    self.game = game;
+	    self.stage = game.stage;
+	    self.offset = {x : 0, y: 0};
+	    self.followTarget = null;
+
+	}
+
+	Camera.prototype.update = function(deltaTime) {
+	    var self = this;
+
+	    if (self.followTarget) {
+	        var targetPos = self.followTarget.body.position;
+	        var adjusted = {
+	            x: targetPos.x - (self.stage.width / 2), 
+	            y: targetPos.y - (self.stage.height / 2)
+	        };
+	        self.offset = Vector.neg(adjusted);
+	    }
+
+	    self.stage.position = self.offset;
+	};
+
+	Camera.prototype.onDown = function(event) {
+
+	};
+
+	Camera.prototype.onUp = function(event) {
+
+	};
+
+	Camera.prototype.moveScreen = function(vector) {
+	    this.offset = Vector.add(this.offset, vector);
+	    
+	};
+
+	Camera.prototype.followEntity = function(entity) {
+	    this.followTarget = entity;
+	};
+
+	Camera.prototype.screenToWorld = function(point) {
+	    return Vector.sub(point, this.offset);
+	};
+
+	Camera.prototype.worldToScreen = function(point) {
+	    return Vector.add(point, this.offset);
+	};
+
+	module.exports = Camera;
+
+/***/ },
+/* 37 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var Entity  = __webpack_require__(34),
+	    Util    = __webpack_require__(35),
+	    PIXI    = __webpack_require__(1);
+
+	var Body    = __webpack_require__(2).Body,
+	    Bodies  = __webpack_require__(2).Bodies,
+	    Vector  = __webpack_require__(2).Vector,
+	    Common  = __webpack_require__(2).Common;
+
+	function Whale(pos) {
+	    Entity.call(this);
+
+	    this.tags.push("rideable");
+	    this.tags.push("whale");
+
+	    this.startPos = pos;
+
+	    this.target = null;
+	    this.startDistance = 0;
+	}
+
+	Whale.prototype = Object.create(Entity.prototype);
+	Whale.prototype.constructor = Whale;
+
+	// OVERRIDES
+
+	Whale.prototype.init = function(stage) {
+	    var self = this;
+
+	    return Entity.prototype.init.call(this, stage, "../images/whale_blue.png")
+	    .then(function() {
+	        self.body = Bodies.rectangle(
+	            self.startPos.x, self.startPos.y, 32, 134
+	        );
+
+	        self.info = new PIXI.Graphics();
+	        stage.addChild(self.info);
+	    });
+	};
+
+	Whale.prototype.update = function(deltaTime) {
+	    var self = this;
+
+	    if (self.target != null) {
+	        var vecToTarget = Vector.sub(self.target, self.body.position);
+	        var targetDir = Vector.normalise(vecToTarget);
+	        var facingVector = self.getFacingVector();
+
+	        var currentAngle = Math.atan2(facingVector.y, facingVector.x);
+	        var targetAngle = Math.atan2(targetDir.y, targetDir.x);
+
+	        var angleDelta = targetAngle - currentAngle;
+	        var distanceRatio = Vector.magnitude(vecToTarget) / self.startDistance;
+
+	        distanceRatio = Common.clamp(distanceRatio, 0, 1);
+	        // var angleDelta = Util.lerp(currentAngle, targetAngle, (1 - distanceRatio));
+
+	        Body.rotate( self.body, angleDelta * (1 - distanceRatio));
+
+	        if (Vector.magnitude(vecToTarget) < 60) {
+	            self.target = null;
+	        }
+	    }
+
+	    Entity.prototype.update.call(self, deltaTime);
+	};
+
+	Whale.prototype.onDown = function(event) {
+	    var self = this;
+
+	    var rawMousePos = event.data.global;
+
+	    var localX = self.body.position.x - rawMousePos.x;
+	    var localY = self.body.position.y - rawMousePos.y;
+	    var worldMouse = { x : self.body.position.x + localX, y : self.body.position.y + localY};
+
+	    var forceMagnitude = 0.009 * self.body.mass;
+
+	    var normalForce = Vector.normalise(Vector.sub(worldMouse, self.body.position));
+	    var finalForce = Vector.mult(normalForce, forceMagnitude);
+
+	    Body.applyForce(self.body, worldMouse, finalForce);
+
+	    Entity.prototype.onDown.call(self, event);
+	};
+
+	Whale.prototype.onUp = function(event) {
+	    var self = this;
+
+	    Entity.prototype.onUp.call(self, event);
+	};
+
+	// LOCAL
+
+	Whale.prototype.follow = function(target) {
+	    var self = this;
+
+	    self.target = Vector.clone(target);
+	    var targetVector = Vector.sub(target, self.body.position);
+	    self.startDistance = Vector.magnitude( targetVector );
+	    var targetDir = Vector.normalise( targetVector );
+
+	    var tailPoint = Vector.add( self.body.position, Vector.mult(Vector.neg(targetDir), 10) );
+	    Body.applyForce(self.body, tailPoint, Vector.mult(targetDir, self.body.mass * 0.009) );
+
+	};
+
+
+
+	module.exports = Whale;
+
+/***/ },
+/* 38 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var PIXI    = __webpack_require__(1);
+
+	function Chunk(pos, bounds) {
+	    this.num_stars = 100;
+	    this.position = pos;
+	    this.width = bounds.x;
+	    this.height = bounds.y;
+
+	    this.container = new PIXI.Container();
+	}
+
+	Chunk.prototype.generate = function(renderer) {
+	    var self = this;
+	    console.log(self.width + " " + self.height);
+
+	    return new Promise(function(resolve, reject) {
+	        var background = new PIXI.Graphics();
+	        background.beginFill(0x111111);
+	        background.drawRect(0, 0, self.width, self.height);
+	        self.container.addChild(background);
+
+	        var stars = self._createStars(self.num_stars);
+	        self.container.addChild(stars);
+
+	        var tex = self.container.generateTexture(renderer);
+	        var output = new PIXI.Sprite(tex);
+	        output.position = new PIXI.Point(
+	            self.position.x * self.width, 
+	            self.position.y * self.height
+	        );
+	        resolve(output);
+	    });
+	}
+
+	Chunk.prototype._createStars = function(num_stars) {
+	    var self = this;
+
+	    var star_container = new PIXI.Graphics();
+	    star_container.beginFill(0xFFFFFF, 1);
+	    for (var i = 0; i < num_stars; i++) {
+	        var x = Math.floor(Math.random() * self.width);
+	        var y = Math.floor(Math.random() * self.height);
+	        star_container.drawCircle(x, y, Math.random() * 4);
+	    };
+	    star_container.endFill();
+	    return star_container;
+	}
+
+	module.exports = Chunk;
 
 /***/ }
 /******/ ]);

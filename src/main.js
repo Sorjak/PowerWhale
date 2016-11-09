@@ -1,6 +1,5 @@
 var PIXI = require('pixi.js'),
     Engine = require("matter-js").Engine;
-    // World  = require("matter-js").World;
 
 var Game = require('./game.js');
 
@@ -19,8 +18,7 @@ var engine = Engine.create($("#pixi-canvas"));
 
 $("#pixi-canvas").append(RENDERER.view);
 
-var game = new Game(engine.world);
-
+var game = new Game(RENDERER, engine.world, GAME_WIDTH, GAME_HEIGHT);
 var animFrame = null;
 
 var mainLoop = function() {

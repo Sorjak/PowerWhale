@@ -24,7 +24,7 @@ Entity.prototype.init = function(stage, image_path) {
         stage.addChild(self.sprite);
 
         self.body = Bodies.rectangle(
-            0, 0, self.sprite.width, self.sprite.height
+            0, 0, 64, 64
         );
 
         resolve(true);
