@@ -26,7 +26,7 @@ Player.prototype.init = function(stage) {
         // Body.translate(self.body, {x: stage.width / 2, y: stage.height / 2});
 
         self.body = Bodies.circle(
-            800, 600, 32
+            0, 0, 32
         );
 
         self.info = new PIXI.Graphics();

@@ -9624,16 +9624,17 @@
 /* 32 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var World   = __webpack_require__(2).World;
+	var World   = __webpack_require__(2).World,
+	    Body    = __webpack_require__(2).Body;
 
 	var Player  = __webpack_require__(33),
-	    Whale   = __webpack_require__(37),
-	    Camera  = __webpack_require__(36),
-	    Chunk   = __webpack_require__(38);
+	    Whale   = __webpack_require__(36),
+	    Camera  = __webpack_require__(37),
+	    ChunkManager    = __webpack_require__(38),
+	    WhaleManager    = __webpack_require__(40);
 
 	function Game(renderer, world, width, height) {
 	    this.camera = null;
-	    this.renderer = renderer;
 
 	    world.bounds.min.x = -Math.Infinity;
 	    world.bounds.min.y = -Math.Infinity;
@@ -9645,7 +9646,11 @@
 
 	    this.stage = null;
 	    this.world = world;
+	    this.chunkManager = new ChunkManager(renderer, this.width, this.height);
+	    this.whaleManager = new WhaleManager(world);
+	    this.initChunks = 5;
 
+	    this.player = null;
 	    this.entities = [];
 	}
 
@@ -9654,56 +9659,54 @@
 
 	    self.world.gravity.y = 0;
 
+	    var background = new PIXI.Container();
+	    var first_layer = new PIXI.Container();
+
 	    self.stage = new PIXI.Container();
+	    self.stage.addChild(background);
+	    self.stage.addChild(first_layer);
+
 	    self.stage.interactive = true;
 	    self.camera = new Camera(self);
 
 	    self._bindListeners();
-	    var chunkPromises = [];
-	    for (var i = 0; i < 2; i++) {
-	        for (var j = 0; j < 2; j++) {
-	            var chunk = new Chunk(
-	                {x: i, y: j},
-	                {x : self.width, y: self.height}
-	            );
-	            var prom = chunk.generate(self.renderer);
-	            chunkPromises.push(prom);
-	        }
-	    }
 
-	    return Promise.all(chunkPromises).then(function(chunks) {
-	        for (var i = chunks.length - 1; i >= 0; i--) {
-	            console.log(chunks[i].position);
-	            self.stage.addChild(chunks[i]);
-	        }
+	    return self.chunkManager.init(background, self.initChunks)
+	        .then(function(chunkMap) {
 
 	        self.targetPoint = new PIXI.Graphics();
 	        self.stage.addChild(self.targetPoint);
 
-	        var whale = new Whale({x: 200, y: 300});
-	        whale.init(self.stage).then(function() {
-	            self.entities.push(whale);
-	            World.addBody(self.world, whale.body);
+	        // var whale = new Whale({x: 200, y: 300});
+	        // var whaleProm = whale.init(first_layer).then(function() {
+	        //     self.entities.push(whale);
+	        //     World.addBody(self.world, whale.body);
+	        // });
+
+	        var whaleProm = self.whaleManager.init(first_layer, 5);
+
+	        self.player = new Player();
+	        var pProm = self.player.init(first_layer).then(function() {
+	            Body.translate(self.player.body, 
+	                {x: (self.stage.width / 2), y:(self.stage.height/2)}
+	            );
+	            World.addBody(self.world, self.player.body);
+	            self.camera.followEntity(self.player);
 	        });
 
-	        var player = new Player();
-	        player.init(self.stage).then(function() {
-	            self.entities.push(player);
-	            World.addBody(self.world, player.body);
-	            self.camera.followEntity(player);
-	        });
-
-	        console.log(self.stage.width);
-	        return true;
+	        return Promise.all([whaleProm, pProm]);
 	    });
 	};
 
 	Game.prototype.update = function(deltaTime) {
-	    for (var i = this.entities.length - 1; i >= 0; i--) {
-	        var e = this.entities[i];
-	        e.update(deltaTime);
-	    };
+	    this.player.update(deltaTime);
+	    // for (var i = this.entities.length - 1; i >= 0; i--) {
+	    //     var e = this.entities[i];
+	    //     e.update(deltaTime);
+	    // };
 
+	    this.chunkManager.update(deltaTime, this.player);
+	    this.whaleManager.update(deltaTime);
 	    this.camera.update(deltaTime);
 	};
 
@@ -9712,9 +9715,9 @@
 	    // Check if we are the target of the click.
 	    if (event.data.target.parent == null) {
 	        var drawPoint = self.camera.screenToWorld(event.data.global);
-	        var whale = self.getEntitiesByTag("whale")[0];
+	        // var whale = self.getEntitiesByTag("whale")[0];
 
-	        whale.follow(drawPoint);
+	        // whale.follow(drawPoint);
 
 	        self.targetPoint.clear();
 	        self.targetPoint.beginFill(0xFF0000, 1);
@@ -9728,18 +9731,17 @@
 	};
 
 	Game.prototype.onKeyDown = function(event) {
-	    var player = this.getEntitiesByTag("player")[0];
 	    if (event.keyCode == 87) { // W
-	        player.move({x: 0, y: -1});
+	        this.player.move({x: 0, y: -1});
 	    }
 	    else if (event.keyCode == 65) { // A
-	        player.move({x: -1, y: 0});
+	        this.player.move({x: -1, y: 0});
 	    }    
 	    else if (event.keyCode == 68) { // D
-	        player.move({x: 1, y: 0});
+	        this.player.move({x: 1, y: 0});
 	    }
 	    else if (event.keyCode == 83) { // S
-	        player.move({x: 0, y: 1});
+	        this.player.move({x: 0, y: 1});
 	    }    
 	};
 
@@ -9782,20 +9784,6 @@
 	    );
 	}
 
-	Game.prototype._createStars = function(num_stars) {
-	    var self = this;
-
-	    var star_container = new PIXI.Graphics();
-	    star_container.clear();
-	    star_container.beginFill(0xFFFFFF, 1);
-	    for (var i = 0; i < num_stars; i++) {
-	        var x = Math.floor(Math.random() * self.width);
-	        var y = Math.floor(Math.random() * self.height);
-	        star_container.drawCircle(x, y, Math.random() * 4);
-	    };
-	    star_container.endFill();
-	    return star_container;
-	}
 
 	module.exports = Game;
 
@@ -9831,7 +9819,7 @@
 	        // Body.translate(self.body, {x: stage.width / 2, y: stage.height / 2});
 
 	        self.body = Bodies.circle(
-	            800, 600, 32
+	            0, 0, 32
 	        );
 
 	        self.info = new PIXI.Graphics();
@@ -9957,67 +9945,6 @@
 /* 36 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var PIXI = __webpack_require__(1),
-	    Comp = __webpack_require__(2).Composite,
-	    World = __webpack_require__(2).World,
-	    Vector = __webpack_require__(2).Vector;
-
-	function Camera(game) {
-	    var self = this;
-
-	    self.game = game;
-	    self.stage = game.stage;
-	    self.offset = {x : 0, y: 0};
-	    self.followTarget = null;
-
-	}
-
-	Camera.prototype.update = function(deltaTime) {
-	    var self = this;
-
-	    if (self.followTarget) {
-	        var targetPos = self.followTarget.body.position;
-	        var adjusted = {
-	            x: targetPos.x - (self.stage.width / 2), 
-	            y: targetPos.y - (self.stage.height / 2)
-	        };
-	        self.offset = Vector.neg(adjusted);
-	    }
-
-	    self.stage.position = self.offset;
-	};
-
-	Camera.prototype.onDown = function(event) {
-
-	};
-
-	Camera.prototype.onUp = function(event) {
-
-	};
-
-	Camera.prototype.moveScreen = function(vector) {
-	    this.offset = Vector.add(this.offset, vector);
-	    
-	};
-
-	Camera.prototype.followEntity = function(entity) {
-	    this.followTarget = entity;
-	};
-
-	Camera.prototype.screenToWorld = function(point) {
-	    return Vector.sub(point, this.offset);
-	};
-
-	Camera.prototype.worldToScreen = function(point) {
-	    return Vector.add(point, this.offset);
-	};
-
-	module.exports = Camera;
-
-/***/ },
-/* 37 */
-/***/ function(module, exports, __webpack_require__) {
-
 	var Entity  = __webpack_require__(34),
 	    Util    = __webpack_require__(35),
 	    PIXI    = __webpack_require__(1);
@@ -10130,27 +10057,279 @@
 	module.exports = Whale;
 
 /***/ },
+/* 37 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var PIXI = __webpack_require__(1),
+	    Comp = __webpack_require__(2).Composite,
+	    World = __webpack_require__(2).World,
+	    Vector = __webpack_require__(2).Vector;
+
+	function Camera(game) {
+	    var self = this;
+
+	    self.game = game;
+	    self.stage = game.stage;
+	    self.offset = {x : 0, y: 0};
+	    self.followTarget = null;
+
+	}
+
+	Camera.prototype.update = function(deltaTime) {
+	    var self = this;
+
+	    if (self.followTarget) {
+	        var targetPos = self.followTarget.body.position;
+	        var adjusted = {
+	            x: targetPos.x - (self.game.width / 2), 
+	            y: targetPos.y - (self.game.height / 2)
+	        };
+	        self.offset = Vector.neg(adjusted);
+	    }
+
+	    self.stage.position = self.offset;
+	};
+
+	Camera.prototype.onDown = function(event) {
+
+	};
+
+	Camera.prototype.onUp = function(event) {
+
+	};
+
+	Camera.prototype.moveScreen = function(vector) {
+	    this.offset = Vector.add(this.offset, vector);
+	    
+	};
+
+	Camera.prototype.followEntity = function(entity) {
+	    this.followTarget = entity;
+	};
+
+	Camera.prototype.screenToWorld = function(point) {
+	    return Vector.sub(point, this.offset);
+	};
+
+	Camera.prototype.worldToScreen = function(point) {
+	    return Vector.add(point, this.offset);
+	};
+
+	module.exports = Camera;
+
+/***/ },
 /* 38 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var PIXI    = __webpack_require__(1);
 
-	function Chunk(pos, bounds) {
+	var Chunk   = __webpack_require__(39);
+
+	function ChunkManager(renderer, width, height) {
+	    this.renderer = renderer;
+
+	    this.width = width;
+	    this.height = height;
+
+	    this.chunks = {};
+
+	    this.currentChunk = null;
+	    this.stage = null;
+	}
+
+	// OVERRIDES
+
+	ChunkManager.prototype.init = function(stage, num_chunks) {
+	    var self = this;
+
+	    self.stage = stage;
+	    var chunkPromises = [];
+
+	    for (var i = 0; i < num_chunks; i++) {
+	        for (var j = 0; j < num_chunks; j++) {
+	            var c = new Chunk(i, j, self.width, self.height);
+	            var prom = c.generate(self.renderer);
+	            chunkPromises.push(prom);
+	        }
+	    }
+
+	    return Promise.all(chunkPromises).then(function(chunks) {
+	        chunks.forEach(function(chunk, index) {
+	            var x = chunk.position.x / self.width;
+	            var y = chunk.position.y / self.height;
+
+	            self.chunks[x+"|"+y] = chunk;
+	            stage.addChild(chunk);
+	        });
+
+	        return self.chunks;
+	    });
+	}
+
+	ChunkManager.prototype.generateChunks = function(chunkIndexes) {
+	    var self = this;
+
+	    chunkIndexes.forEach(function(chunkIndex) {
+	        var c = new Chunk(chunkIndex.x, chunkIndex.y, self.width, self.height);
+	        c.generate(self.renderer).then(function(sprite) {
+	            self.chunks[chunkIndex.x+"|"+chunkIndex.y] = sprite
+	            self.stage.addChild(sprite);
+	        });
+	    });
+	}
+
+	ChunkManager.prototype.update = function(deltaTime, player) {
+	    if (this.currentChunk) {
+	        if (!this.chunkContainsPoint(this.currentChunk, player.body.position)) {
+	            var currentChunk = this.getChunkFromPoint(player.body.position);
+	            this.setCurrentChunk(currentChunk);
+	        }
+	    } else {
+	        var currentChunk = this.getChunkFromPoint(player.body.position);
+	        this.setCurrentChunk(currentChunk);
+	    }
+	}
+
+	// LOCAL
+
+	ChunkManager.prototype.getChunkFromPoint = function(point) {
+	    var self = this;
+
+	    var output = null;
+	    for (var index in self.chunks) {
+	        var chunk = self.chunks[index];
+	        if (chunk && self.chunkContainsPoint(chunk, point)) {
+	            output = chunk;
+	        }
+	    }
+
+	    return output;
+	}
+
+	ChunkManager.prototype.setCurrentChunk = function(chunk) {
+	    this.currentChunk = chunk;
+
+	    if (this.currentChunk) {
+	        var neighbors = this.getNeighborsForChunk(this.currentChunk, true);
+	        if (neighbors.length < 8) {
+	            // we need to add more chunks around the area.
+	            var missing = this.getMissingNeighborIndexes(this.currentChunk, neighbors);
+	            this.generateChunks(missing);
+
+	        }
+	    } else {
+	        console.log("setting null chunk");
+	    }
+	}
+
+	ChunkManager.prototype.getMissingNeighborIndexes = function(chunk, neighbors) {
+	    var self = this;
+	    var chunk_x = chunk.position.x / chunk.width;
+	    var chunk_y = chunk.position.y / chunk.height;
+
+	    var output = [];
+	    for (var i = -1; i < 2; i++) {
+	        for (var j = -1; j < 2; j++) {
+	            if (!self.chunks[(chunk_x + i)+"|"+(chunk_y + j)]) {
+	                output.push({x : chunk_x + i, y : chunk_y + j});
+	            }
+	        }
+	    }
+
+	    return output;
+	}
+
+	ChunkManager.prototype.chunkContainsPoint = function(chunk, point) {
+	    if (chunk.position.x <= point.x &&
+	        chunk.position.x + chunk.width > point.x &&
+	        chunk.position.y <= point.y &&
+	        chunk.position.y + chunk.height > point.y) {
+	        return true;
+	    }
+
+	    return false;
+	};
+
+	ChunkManager.prototype.getNeighborsForChunk = function(chunk, diagonal) {
+	    var x = chunk.position.x / chunk.width;
+	    var y = chunk.position.y / chunk.height;
+	    var output = [];
+	    
+	    //west
+	    if (this.chunks[(x-1)+"|"+y]) {
+	        output.push(this.chunks[(x-1)+"|"+y]);
+	    }
+	    
+	    //north
+	    if (this.chunks[x+"|"+(y-1)]) {
+	        output.push(this.chunks[x+"|"+(y-1)]);
+	    }
+	    
+	    //east
+	    if (this.chunks[(x+1)+"|"+y]) {
+	        output.push(this.chunks[(x+1)+"|"+y]);
+	    }
+	    
+	    //south
+	    if (this.chunks[x+"|"+(y+1)]) {
+	        output.push(this.chunks[x+"|"+(y+1)]);
+	    }
+	    
+
+	    if (diagonal) {
+	        //northwest
+	        if (this.chunks[(x-1)+"|"+(y-1)]) {
+	            output.push(this.chunks[(x-1)+"|"+(y-1)]);
+	        }
+	        
+	        //northeast
+	        if (this.chunks[(x+1)+"|"+(y+1)]) {
+	            output.push(this.chunks[(x+1)+"|"+(y+1)]);
+	        }
+	        
+	        //southwest
+	        if (this.chunks[(x-1)+"|"+(y+1)]) {
+	            output.push(this.chunks[(x-1)+"|"+(y+1)]);
+	        }
+	        
+	        //southeast
+	        if (this.chunks[(x+1)+"|"+(y-1)]) {
+	            output.push(this.chunks[(x+1)+"|"+(y-1)]);
+	        }
+	    }
+
+	    return output;
+	}
+
+	module.exports = ChunkManager;
+
+/***/ },
+/* 39 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var PIXI    = __webpack_require__(1);
+
+	function Chunk(x, y, width, height) {
 	    this.num_stars = 100;
-	    this.position = pos;
-	    this.width = bounds.x;
-	    this.height = bounds.y;
+	    this.x = x;
+	    this.y = y;
+	    this.width = width;
+	    this.height = height;
 
 	    this.container = new PIXI.Container();
 	}
 
 	Chunk.prototype.generate = function(renderer) {
 	    var self = this;
-	    console.log(self.width + " " + self.height);
 
 	    return new Promise(function(resolve, reject) {
+	        // var background = new PIXI.Graphics();
+	        // background.lineStyle(2, 0xFF0000, 1);
+	        // background.drawRect(0, 0, self.width -2 , self.height -2);
+	        // self.container.addChild(background);
+
 	        var background = new PIXI.Graphics();
-	        background.beginFill(0x111111);
+	        background.lineStyle(0x000000, 1);
 	        background.drawRect(0, 0, self.width, self.height);
 	        self.container.addChild(background);
 
@@ -10160,9 +10339,10 @@
 	        var tex = self.container.generateTexture(renderer);
 	        var output = new PIXI.Sprite(tex);
 	        output.position = new PIXI.Point(
-	            self.position.x * self.width, 
-	            self.position.y * self.height
+	            self.x * self.width, 
+	            self.y * self.height
 	        );
+	        console.log(output.width + ", " + output.height);
 	        resolve(output);
 	    });
 	}
@@ -10173,8 +10353,12 @@
 	    var star_container = new PIXI.Graphics();
 	    star_container.beginFill(0xFFFFFF, 1);
 	    for (var i = 0; i < num_stars; i++) {
-	        var x = Math.floor(Math.random() * self.width);
-	        var y = Math.floor(Math.random() * self.height);
+	        var randx = Math.random() * self.width;
+	        var randy = Math.random() * self.height;
+
+	        var x = Math.min(Math.max(10, randx), self.width - 10);
+	        var y = Math.min(Math.max(10, randy), self.height - 10);
+
 	        star_container.drawCircle(x, y, Math.random() * 4);
 	    };
 	    star_container.endFill();
@@ -10182,6 +10366,63 @@
 	}
 
 	module.exports = Chunk;
+
+/***/ },
+/* 40 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var PIXI    = __webpack_require__(1),
+	    World   = __webpack_require__(2).World;
+
+	var Whale   = __webpack_require__(36);
+
+	function WhaleManager(physicsWorld) {
+	    this.world = physicsWorld;
+	    this.entities = [];
+	    this.stage = null;
+	}
+
+	// OVERRIDES
+
+	WhaleManager.prototype.init = function(stage, num_whales) {
+	    var self = this;
+
+	    self.stage = stage;
+	    var whalePromises = [];
+
+	    for (var i = 0; i < num_whales; i++) {
+	        var randx = Math.random() * 200;
+	        var randy = Math.random() * 300;
+
+	        var whale = new Whale({x: randx, y: randy});
+	        var whaleProm = whale.init(stage).then(function() {
+	            self.entities.push(whale);
+	            World.addBody(self.world, whale.body);
+
+	            return whale;
+	        });
+	        whalePromises.push(whaleProm);
+	    }
+
+	    return Promise.all(whalePromises).then(function(whales) {
+	        console.log(whales);
+	    });
+	}
+
+
+	WhaleManager.prototype.update = function(deltaTime) {
+	    var self = this;
+
+	    self.entities.forEach(function(whale) {
+	        whale.update(deltaTime);
+	    });
+	}
+
+	// LOCAL
+
+
+
+	module.exports = WhaleManager;
 
 /***/ }
 /******/ ]);

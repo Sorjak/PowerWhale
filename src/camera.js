@@ -19,8 +19,8 @@ Camera.prototype.update = function(deltaTime) {
     if (self.followTarget) {
         var targetPos = self.followTarget.body.position;
         var adjusted = {
-            x: targetPos.x - (self.stage.width / 2), 
-            y: targetPos.y - (self.stage.height / 2)
+            x: targetPos.x - (self.game.width / 2), 
+            y: targetPos.y - (self.game.height / 2)
         };
         self.offset = Vector.neg(adjusted);
     }
