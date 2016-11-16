@@ -4,6 +4,7 @@ var World   = require("matter-js").World,
 var Player  = require("./player.js"),
     Whale   = require("./whale.js"),
     Camera  = require('./camera.js'),
+    Input   = require('./input.js'),
     ChunkManager    = require('./chunkManager.js'),
     WhaleManager    = require('./whaleManager.js');
 
@@ -43,7 +44,8 @@ Game.prototype.start = function() {
     self.stage.interactive = true;
     self.camera = new Camera(self);
 
-    self._bindListeners();
+    // self._bindListeners();
+    self.input = new Input(self);
 
     return self.chunkManager.init(background, self.initChunks)
         .then(function(chunkMap) {
@@ -57,7 +59,7 @@ Game.prototype.start = function() {
         //     World.addBody(self.world, whale.body);
         // });
 
-        var whaleProm = self.whaleManager.init(first_layer, 5);
+        var whaleProm = self.whaleManager.init(first_layer, 2);
 
         self.player = new Player();
         var pProm = self.player.init(first_layer).then(function() {
@@ -73,34 +75,44 @@ Game.prototype.start = function() {
 };
 
 Game.prototype.update = function(deltaTime) {
+    if (this.input.isDown('W')) { // W
+        this.player.move({x: 0, y: -1});
+    }
+    if (this.input.isDown('A')) { // A
+        this.player.move({x: -1, y: 0});
+    }    
+    if (this.input.isDown('D')) { // D
+        this.player.move({x: 1, y: 0});
+    }
+    if (this.input.isDown('S')) { // S
+        this.player.move({x: 0, y: 1});
+    }    
+
     this.player.update(deltaTime);
-    // for (var i = this.entities.length - 1; i >= 0; i--) {
-    //     var e = this.entities[i];
-    //     e.update(deltaTime);
-    // };
 
     this.chunkManager.update(deltaTime, this.player);
     this.whaleManager.update(deltaTime);
+
     this.camera.update(deltaTime);
 };
 
-Game.prototype.onDown = function(event) {
+Game.prototype.handleMouse = function(event) {
     var self = this;
     // Check if we are the target of the click.
+
     if (event.data.target.parent == null) {
-        var drawPoint = self.camera.screenToWorld(event.data.global);
-        // var whale = self.getEntitiesByTag("whale")[0];
+        if (self.player.riding)
+            self.player.dismount();
+    } else {
+        var worldPoint = self.camera.screenToWorld(event.data.global);
 
-        // whale.follow(drawPoint);
+        var nearest = self.whaleManager.nearestWhale(worldPoint);
 
-        self.targetPoint.clear();
-        self.targetPoint.beginFill(0xFF0000, 1);
-        self.targetPoint.drawCircle(drawPoint.x, drawPoint.y, 5);
-        self.targetPoint.endFill();
+        self.player.rideWhale(nearest);
     }
 };
 
-Game.prototype.onUp = function(event) {
+Game.prototype.onMouseUp = function(event) {
 
 };
 
@@ -108,13 +120,13 @@ Game.prototype.onKeyDown = function(event) {
     if (event.keyCode == 87) { // W
         this.player.move({x: 0, y: -1});
     }
-    else if (event.keyCode == 65) { // A
+    if (event.keyCode == 65) { // A
         this.player.move({x: -1, y: 0});
     }    
-    else if (event.keyCode == 68) { // D
+    if (event.keyCode == 68) { // D
         this.player.move({x: 1, y: 0});
     }
-    else if (event.keyCode == 83) { // S
+    if (event.keyCode == 83) { // S
         this.player.move({x: 0, y: 1});
     }    
 };
@@ -140,14 +152,14 @@ Game.prototype._bindListeners = function() {
     var self = this;
 
     this.stage.on('mousedown', function(e) {
-        self.onDown(e);
+        self.onMouseDown(e);
     });
     this.stage.on('touchstart', function(e) {
-        self.onDown(e);
+        self.onMouseDown(e);
     });
 
     this.stage.on('mouseup', function(e) {
-        self.onUp(e);
+        self.onMouseUp(e);
     });
 
     window.addEventListener(

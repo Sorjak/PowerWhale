@@ -9630,6 +9630,7 @@
 	var Player  = __webpack_require__(33),
 	    Whale   = __webpack_require__(36),
 	    Camera  = __webpack_require__(37),
+	    Input   = __webpack_require__(41),
 	    ChunkManager    = __webpack_require__(38),
 	    WhaleManager    = __webpack_require__(40);
 
@@ -9669,7 +9670,8 @@
 	    self.stage.interactive = true;
 	    self.camera = new Camera(self);
 
-	    self._bindListeners();
+	    // self._bindListeners();
+	    self.input = new Input(self);
 
 	    return self.chunkManager.init(background, self.initChunks)
 	        .then(function(chunkMap) {
@@ -9683,7 +9685,7 @@
 	        //     World.addBody(self.world, whale.body);
 	        // });
 
-	        var whaleProm = self.whaleManager.init(first_layer, 5);
+	        var whaleProm = self.whaleManager.init(first_layer, 2);
 
 	        self.player = new Player();
 	        var pProm = self.player.init(first_layer).then(function() {
@@ -9699,34 +9701,44 @@
 	};
 
 	Game.prototype.update = function(deltaTime) {
+	    if (this.input.isDown('W')) { // W
+	        this.player.move({x: 0, y: -1});
+	    }
+	    if (this.input.isDown('A')) { // A
+	        this.player.move({x: -1, y: 0});
+	    }    
+	    if (this.input.isDown('D')) { // D
+	        this.player.move({x: 1, y: 0});
+	    }
+	    if (this.input.isDown('S')) { // S
+	        this.player.move({x: 0, y: 1});
+	    }    
+
 	    this.player.update(deltaTime);
-	    // for (var i = this.entities.length - 1; i >= 0; i--) {
-	    //     var e = this.entities[i];
-	    //     e.update(deltaTime);
-	    // };
 
 	    this.chunkManager.update(deltaTime, this.player);
 	    this.whaleManager.update(deltaTime);
+
 	    this.camera.update(deltaTime);
 	};
 
-	Game.prototype.onDown = function(event) {
+	Game.prototype.handleMouse = function(event) {
 	    var self = this;
 	    // Check if we are the target of the click.
+
 	    if (event.data.target.parent == null) {
-	        var drawPoint = self.camera.screenToWorld(event.data.global);
-	        // var whale = self.getEntitiesByTag("whale")[0];
+	        if (self.player.riding)
+	            self.player.dismount();
+	    } else {
+	        var worldPoint = self.camera.screenToWorld(event.data.global);
 
-	        // whale.follow(drawPoint);
+	        var nearest = self.whaleManager.nearestWhale(worldPoint);
 
-	        self.targetPoint.clear();
-	        self.targetPoint.beginFill(0xFF0000, 1);
-	        self.targetPoint.drawCircle(drawPoint.x, drawPoint.y, 5);
-	        self.targetPoint.endFill();
+	        self.player.rideWhale(nearest);
 	    }
 	};
 
-	Game.prototype.onUp = function(event) {
+	Game.prototype.onMouseUp = function(event) {
 
 	};
 
@@ -9734,13 +9746,13 @@
 	    if (event.keyCode == 87) { // W
 	        this.player.move({x: 0, y: -1});
 	    }
-	    else if (event.keyCode == 65) { // A
+	    if (event.keyCode == 65) { // A
 	        this.player.move({x: -1, y: 0});
 	    }    
-	    else if (event.keyCode == 68) { // D
+	    if (event.keyCode == 68) { // D
 	        this.player.move({x: 1, y: 0});
 	    }
-	    else if (event.keyCode == 83) { // S
+	    if (event.keyCode == 83) { // S
 	        this.player.move({x: 0, y: 1});
 	    }    
 	};
@@ -9766,14 +9778,14 @@
 	    var self = this;
 
 	    this.stage.on('mousedown', function(e) {
-	        self.onDown(e);
+	        self.onMouseDown(e);
 	    });
 	    this.stage.on('touchstart', function(e) {
-	        self.onDown(e);
+	        self.onMouseDown(e);
 	    });
 
 	    this.stage.on('mouseup', function(e) {
-	        self.onUp(e);
+	        self.onMouseUp(e);
 	    });
 
 	    window.addEventListener(
@@ -9802,6 +9814,11 @@
 
 	function Player() {
 	    Entity.call(this);
+
+	    this.body = null;
+	    this.backupBody = null;
+
+	    this.riding = false;
 
 	    this.tags.push("player");
 	}
@@ -9850,9 +9867,47 @@
 
 	Player.prototype.move = function(vector) {
 	    var self = this;
-	    var thrustPoint = Vector.add(self.body.position, Vector.neg(vector));
 
-	    Body.applyForce(self.body, thrustPoint, Vector.mult(vector, self.body.mass * .001));
+	    if (self.riding) {
+	        
+	        var thrust = -vector.y;
+	        var rotation = vector.x;
+	        var facingVector = self.getFacingVector();
+
+	        var thrustVector = Vector.mult(facingVector, thrust);
+	        var thrustPoint = Vector.add(self.body.position, Vector.neg(thrustVector));
+
+	        Body.applyForce(self.body, thrustPoint, Vector.mult(thrustVector, self.body.mass * .001));
+
+	        Body.rotate(self.body, .05 * rotation);
+
+	    } else {
+	        var thrustPoint = Vector.add(self.body.position, Vector.neg(vector));
+
+	        Body.applyForce(self.body, thrustPoint, Vector.mult(vector, self.body.mass * .001));
+	    }
+	};
+
+	Player.prototype.rideWhale = function(whale) {
+	    if (this.riding) {
+	        this.dismount();
+	    }
+
+	    Body.setStatic(this.body, true);
+	    this.backupBody = this.body;
+	    this.body = whale.body;
+
+	    this.riding = true;
+
+	}
+
+	Player.prototype.dismount = function() {
+	    this.body = this.backupBody;
+	    this.backupBody = null;
+
+	    Body.setStatic(this.body, false);
+
+	    this.riding = false;
 	};
 
 	module.exports = Player;
@@ -9962,8 +10017,7 @@
 
 	    this.startPos = pos;
 
-	    this.target = null;
-	    this.startDistance = 0;
+	    this.rider = null;
 	}
 
 	Whale.prototype = Object.create(Entity.prototype);
@@ -9982,32 +10036,14 @@
 
 	        self.info = new PIXI.Graphics();
 	        stage.addChild(self.info);
+
+	        return self;
 	    });
 	};
 
 	Whale.prototype.update = function(deltaTime) {
 	    var self = this;
 
-	    if (self.target != null) {
-	        var vecToTarget = Vector.sub(self.target, self.body.position);
-	        var targetDir = Vector.normalise(vecToTarget);
-	        var facingVector = self.getFacingVector();
-
-	        var currentAngle = Math.atan2(facingVector.y, facingVector.x);
-	        var targetAngle = Math.atan2(targetDir.y, targetDir.x);
-
-	        var angleDelta = targetAngle - currentAngle;
-	        var distanceRatio = Vector.magnitude(vecToTarget) / self.startDistance;
-
-	        distanceRatio = Common.clamp(distanceRatio, 0, 1);
-	        // var angleDelta = Util.lerp(currentAngle, targetAngle, (1 - distanceRatio));
-
-	        Body.rotate( self.body, angleDelta * (1 - distanceRatio));
-
-	        if (Vector.magnitude(vecToTarget) < 60) {
-	            self.target = null;
-	        }
-	    }
 
 	    Entity.prototype.update.call(self, deltaTime);
 	};
@@ -10015,18 +10051,7 @@
 	Whale.prototype.onDown = function(event) {
 	    var self = this;
 
-	    var rawMousePos = event.data.global;
 
-	    var localX = self.body.position.x - rawMousePos.x;
-	    var localY = self.body.position.y - rawMousePos.y;
-	    var worldMouse = { x : self.body.position.x + localX, y : self.body.position.y + localY};
-
-	    var forceMagnitude = 0.009 * self.body.mass;
-
-	    var normalForce = Vector.normalise(Vector.sub(worldMouse, self.body.position));
-	    var finalForce = Vector.mult(normalForce, forceMagnitude);
-
-	    Body.applyForce(self.body, worldMouse, finalForce);
 
 	    Entity.prototype.onDown.call(self, event);
 	};
@@ -10038,19 +10063,6 @@
 	};
 
 	// LOCAL
-
-	Whale.prototype.follow = function(target) {
-	    var self = this;
-
-	    self.target = Vector.clone(target);
-	    var targetVector = Vector.sub(target, self.body.position);
-	    self.startDistance = Vector.magnitude( targetVector );
-	    var targetDir = Vector.normalise( targetVector );
-
-	    var tailPoint = Vector.add( self.body.position, Vector.mult(Vector.neg(targetDir), 10) );
-	    Body.applyForce(self.body, tailPoint, Vector.mult(targetDir, self.body.mass * 0.009) );
-
-	};
 
 
 
@@ -10372,7 +10384,9 @@
 /***/ function(module, exports, __webpack_require__) {
 
 	var PIXI    = __webpack_require__(1),
-	    World   = __webpack_require__(2).World;
+	    World   = __webpack_require__(2).World,
+	    Comp    = __webpack_require__(2).Composite,
+	    Vector  = __webpack_require__(2).Vector;
 
 	var Whale   = __webpack_require__(36);
 
@@ -10395,18 +10409,15 @@
 	        var randy = Math.random() * 300;
 
 	        var whale = new Whale({x: randx, y: randy});
-	        var whaleProm = whale.init(stage).then(function() {
-	            self.entities.push(whale);
-	            World.addBody(self.world, whale.body);
-
-	            return whale;
+	        var whaleProm = whale.init(stage).then(function(new_whale) {
+	            self.entities.push(new_whale);
+	            World.addBody(self.world, new_whale.body);
+	            return new_whale;
 	        });
 	        whalePromises.push(whaleProm);
 	    }
 
-	    return Promise.all(whalePromises).then(function(whales) {
-	        console.log(whales);
-	    });
+	    return Promise.all(whalePromises);
 	}
 
 
@@ -10420,9 +10431,96 @@
 
 	// LOCAL
 
+	WhaleManager.prototype.nearestWhale = function(point) {
+	    var self = this;
+
+	    var nearest = null;
+	    var minLength = Infinity;
+
+	    self.entities.forEach(function(whale) {
+	        var vecToWhale = Vector.sub(point, whale.body.position);
+	        var length = Vector.magnitude(vecToWhale);
+	        console.log(length);
+
+	        if (length < minLength) {
+	            minLength = length;
+	            nearest = whale;
+	        }
+	    });
+
+	    return nearest;
+	};
+
 
 
 	module.exports = WhaleManager;
+
+/***/ },
+/* 41 */
+/***/ function(module, exports) {
+
+	
+
+
+	function Input(game) {
+	    this.game = game;
+
+	    this._bindListeners();
+
+	    this.heldKeys = new Set();
+
+	    this.keyMap = {
+	        'A' : 65,
+	        'D' : 68,
+	        'W' : 87,
+	        'S' : 83,
+	    };
+	}
+
+
+	Input.prototype.onMouseDown = function(event) {
+	    this.game.handleMouse(event);
+	};
+
+	Input.prototype.onMouseUp = function(event) {
+
+	};
+
+	Input.prototype.onKeyDown = function(event) {
+	    this.heldKeys.add(event.keyCode);
+	};
+
+	Input.prototype.onKeyUp = function(event) {
+	    this.heldKeys.delete(event.keyCode);
+	};
+
+	Input.prototype._bindListeners = function() {
+	    var self = this;
+
+	    this.game.stage.on('mousedown', function(e) {
+	        self.onMouseDown(e);
+	    });
+	    this.game.stage.on('touchstart', function(e) {
+	        self.onMouseDown(e);
+	    });
+
+	    this.game.stage.on('mouseup', function(e) {
+	        self.onMouseUp(e);
+	    });
+
+	    window.addEventListener(
+	        "keydown", self.onKeyDown.bind(this), false
+	    );
+	    window.addEventListener(
+	        "keyup", self.onKeyUp.bind(this), false
+	    );
+	}
+
+	Input.prototype.isDown = function(key) {
+	    return this.heldKeys.has(this.keyMap[key]);
+	};
+
+	module.exports = Input;
 
 /***/ }
 /******/ ]);

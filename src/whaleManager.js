@@ -1,5 +1,7 @@
 var PIXI    = require('pixi.js'),
-    World   = require('matter-js').World;
+    World   = require('matter-js').World,
+    Comp    = require('matter-js').Composite,
+    Vector  = require('matter-js').Vector;
 
 var Whale   = require('./whale.js');
 
@@ -22,18 +24,15 @@ WhaleManager.prototype.init = function(stage, num_whales) {
         var randy = Math.random() * 300;
 
         var whale = new Whale({x: randx, y: randy});
-        var whaleProm = whale.init(stage).then(function() {
-            self.entities.push(whale);
-            World.addBody(self.world, whale.body);
-
-            return whale;
+        var whaleProm = whale.init(stage).then(function(new_whale) {
+            self.entities.push(new_whale);
+            World.addBody(self.world, new_whale.body);
+            return new_whale;
         });
         whalePromises.push(whaleProm);
     }
 
-    return Promise.all(whalePromises).then(function(whales) {
-        console.log(whales);
-    });
+    return Promise.all(whalePromises);
 }
 
 
@@ -46,6 +45,26 @@ WhaleManager.prototype.update = function(deltaTime) {
 }
 
 // LOCAL
+
+WhaleManager.prototype.nearestWhale = function(point) {
+    var self = this;
+
+    var nearest = null;
+    var minLength = Infinity;
+
+    self.entities.forEach(function(whale) {
+        var vecToWhale = Vector.sub(point, whale.body.position);
+        var length = Vector.magnitude(vecToWhale);
+        console.log(length);
+
+        if (length < minLength) {
+            minLength = length;
+            nearest = whale;
+        }
+    });
+
+    return nearest;
+};
 
 
 

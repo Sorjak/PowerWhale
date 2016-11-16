@@ -10,6 +10,11 @@ var Body    = require('matter-js').Body,
 function Player() {
     Entity.call(this);
 
+    this.body = null;
+    this.backupBody = null;
+
+    this.riding = false;
+
     this.tags.push("player");
 }
 
@@ -57,9 +62,47 @@ Player.prototype.onUp = function(event) {
 
 Player.prototype.move = function(vector) {
     var self = this;
-    var thrustPoint = Vector.add(self.body.position, Vector.neg(vector));
 
-    Body.applyForce(self.body, thrustPoint, Vector.mult(vector, self.body.mass * .001));
+    if (self.riding) {
+        
+        var thrust = -vector.y;
+        var rotation = vector.x;
+        var facingVector = self.getFacingVector();
+
+        var thrustVector = Vector.mult(facingVector, thrust);
+        var thrustPoint = Vector.add(self.body.position, Vector.neg(thrustVector));
+
+        Body.applyForce(self.body, thrustPoint, Vector.mult(thrustVector, self.body.mass * .001));
+
+        Body.rotate(self.body, .05 * rotation);
+
+    } else {
+        var thrustPoint = Vector.add(self.body.position, Vector.neg(vector));
+
+        Body.applyForce(self.body, thrustPoint, Vector.mult(vector, self.body.mass * .001));
+    }
+};
+
+Player.prototype.rideWhale = function(whale) {
+    if (this.riding) {
+        this.dismount();
+    }
+
+    Body.setStatic(this.body, true);
+    this.backupBody = this.body;
+    this.body = whale.body;
+
+    this.riding = true;
+
+}
+
+Player.prototype.dismount = function() {
+    this.body = this.backupBody;
+    this.backupBody = null;
+
+    Body.setStatic(this.body, false);
+
+    this.riding = false;
 };
 
 module.exports = Player;
