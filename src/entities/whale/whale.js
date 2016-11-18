@@ -1,5 +1,5 @@
-var Entity  = require("./entity.js"),
-    Util    = require("./util.js"),
+var Entity  = require("../entity.js"),
+    Util    = require("../../util.js"),
     PIXI    = require('pixi.js');
 
 var Body    = require('matter-js').Body,
@@ -58,6 +58,14 @@ Whale.prototype.onUp = function(event) {
     var self = this;
 
     Entity.prototype.onUp.call(self, event);
+};
+
+Whale.prototype.initStateMachine = function(BaseFSM) {
+    var self = this;
+
+    Entity.prototype.initStateMachine.call(self);
+
+    
 };
 
 // LOCAL

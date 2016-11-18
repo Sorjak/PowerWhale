@@ -1,9 +1,13 @@
 var PIXI    = require('pixi.js'),
+    machina = require('machina'),
     World   = require('matter-js').World,
     Comp    = require('matter-js').Composite,
     Vector  = require('matter-js').Vector;
 
 var Whale   = require('./whale.js');
+
+var WhaleFSM = 
+
 
 function WhaleManager(physicsWorld) {
     this.world = physicsWorld;

@@ -15,6 +15,7 @@ module.exports = {
 
   include: [
     path.resolve(__dirname, 'node_modules/matter-js'),
+    path.resolve(__dirname, 'node_modules/machina')
   ],
 
   module: {

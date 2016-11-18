@@ -17,7 +17,7 @@ Camera.prototype.update = function(deltaTime) {
     var self = this;
 
     if (self.followTarget) {
-        var targetPos = self.followTarget.body.position;
+        var targetPos = self.followTarget.getBody().position;
         var adjusted = {
             x: targetPos.x - (self.game.width / 2), 
             y: targetPos.y - (self.game.height / 2)

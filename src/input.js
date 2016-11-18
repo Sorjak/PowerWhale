@@ -1,6 +1,3 @@
-
-
-
 function Input(game) {
     this.game = game;
 
@@ -57,6 +54,10 @@ Input.prototype._bindListeners = function() {
 
 Input.prototype.isDown = function(key) {
     return this.heldKeys.has(this.keyMap[key]);
+};
+
+Input.prototype.anyKeysDown = function() {
+    return this.heldKeys.size > 0;
 };
 
 module.exports = Input;

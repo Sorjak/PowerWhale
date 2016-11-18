@@ -17,7 +17,7 @@ app.get('/', function(req, res) {
     res.render("index");
 });
 
-const socketFile = __dirname + '\\powerwhale.sock';
+const socketFile = __dirname + '/powerwhale.sock';
 
 // check for socket file and delete if exists
 

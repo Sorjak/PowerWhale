@@ -1,12 +1,11 @@
 var World   = require("matter-js").World,
     Body    = require("matter-js").Body;
 
-var Player  = require("./player.js"),
-    Whale   = require("./whale.js"),
+var Player  = require("./entities/player/player.js"),
     Camera  = require('./camera.js'),
     Input   = require('./input.js'),
-    ChunkManager    = require('./chunkManager.js'),
-    WhaleManager    = require('./whaleManager.js');
+    ChunkManager    = require('./map/chunkManager.js'),
+    WhaleManager    = require('./entities/whale/whaleManager.js');
 
 function Game(renderer, world, width, height) {
     this.camera = null;
@@ -44,7 +43,6 @@ Game.prototype.start = function() {
     self.stage.interactive = true;
     self.camera = new Camera(self);
 
-    // self._bindListeners();
     self.input = new Input(self);
 
     return self.chunkManager.init(background, self.initChunks)
@@ -52,12 +50,6 @@ Game.prototype.start = function() {
 
         self.targetPoint = new PIXI.Graphics();
         self.stage.addChild(self.targetPoint);
-
-        // var whale = new Whale({x: 200, y: 300});
-        // var whaleProm = whale.init(first_layer).then(function() {
-        //     self.entities.push(whale);
-        //     World.addBody(self.world, whale.body);
-        // });
 
         var whaleProm = self.whaleManager.init(first_layer, 2);
 
@@ -74,19 +66,27 @@ Game.prototype.start = function() {
     });
 };
 
+Game.prototype.handleInput = function() {
+    if (this.input.anyKeysDown()) {
+        if (this.input.isDown('W')) { // W
+            this.player.move({x: 0, y: -1});
+        }
+        if (this.input.isDown('A')) { // A
+            this.player.move({x: -1, y: 0});
+        }    
+        if (this.input.isDown('D')) { // D
+            this.player.move({x: 1, y: 0});
+        }
+        if (this.input.isDown('S')) { // S
+            this.player.move({x: 0, y: 1});
+        }
+    } else {
+        this.player.move({x: 0, y: 0});
+    }
+};
+
 Game.prototype.update = function(deltaTime) {
-    if (this.input.isDown('W')) { // W
-        this.player.move({x: 0, y: -1});
-    }
-    if (this.input.isDown('A')) { // A
-        this.player.move({x: -1, y: 0});
-    }    
-    if (this.input.isDown('D')) { // D
-        this.player.move({x: 1, y: 0});
-    }
-    if (this.input.isDown('S')) { // S
-        this.player.move({x: 0, y: 1});
-    }    
+    this.handleInput();
 
     this.player.update(deltaTime);
 
@@ -101,38 +101,13 @@ Game.prototype.handleMouse = function(event) {
     // Check if we are the target of the click.
 
     if (event.data.target.parent == null) {
-        if (self.player.riding)
-            self.player.dismount();
+        self.player.dismount();
     } else {
         var worldPoint = self.camera.screenToWorld(event.data.global);
 
         var nearest = self.whaleManager.nearestWhale(worldPoint);
-
         self.player.rideWhale(nearest);
     }
-};
-
-Game.prototype.onMouseUp = function(event) {
-
-};
-
-Game.prototype.onKeyDown = function(event) {
-    if (event.keyCode == 87) { // W
-        this.player.move({x: 0, y: -1});
-    }
-    if (event.keyCode == 65) { // A
-        this.player.move({x: -1, y: 0});
-    }    
-    if (event.keyCode == 68) { // D
-        this.player.move({x: 1, y: 0});
-    }
-    if (event.keyCode == 83) { // S
-        this.player.move({x: 0, y: 1});
-    }    
-};
-
-Game.prototype.onKeyUp = function(event) {
-    // body...
 };
 
 Game.prototype.getEntitiesByTag = function(tag) {
@@ -147,28 +122,5 @@ Game.prototype.getEntitiesByTag = function(tag) {
 
     return output;
 };
-
-Game.prototype._bindListeners = function() {
-    var self = this;
-
-    this.stage.on('mousedown', function(e) {
-        self.onMouseDown(e);
-    });
-    this.stage.on('touchstart', function(e) {
-        self.onMouseDown(e);
-    });
-
-    this.stage.on('mouseup', function(e) {
-        self.onMouseUp(e);
-    });
-
-    window.addEventListener(
-        "keydown", self.onKeyDown.bind(this), false
-    );
-    window.addEventListener(
-        "keyup", self.onKeyUp.bind(this), false
-    );
-}
-
 
 module.exports = Game;

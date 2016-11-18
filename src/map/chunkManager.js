@@ -57,12 +57,12 @@ ChunkManager.prototype.generateChunks = function(chunkIndexes) {
 
 ChunkManager.prototype.update = function(deltaTime, player) {
     if (this.currentChunk) {
-        if (!this.chunkContainsPoint(this.currentChunk, player.body.position)) {
-            var currentChunk = this.getChunkFromPoint(player.body.position);
+        if (!this.chunkContainsPoint(this.currentChunk, player.getBody().position)) {
+            var currentChunk = this.getChunkFromPoint(player.getBody().position);
             this.setCurrentChunk(currentChunk);
         }
     } else {
-        var currentChunk = this.getChunkFromPoint(player.body.position);
+        var currentChunk = this.getChunkFromPoint(player.getBody().position);
         this.setCurrentChunk(currentChunk);
     }
 }
