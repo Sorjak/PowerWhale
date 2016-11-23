@@ -17,6 +17,8 @@ function Player() {
     this.inputVector = {x: 0, y: 0};
 
     this.rideEntity = null;
+    this.charging = false;
+    this.wasCharging = false;
 
     this.tags.push("player");
 }
@@ -56,14 +58,27 @@ Player.prototype.update = function(deltaTime) {
         
         var thrust = -self.inputVector.y;
         var rotation = self.inputVector.x;
-        var facingVector = self.getFacingVector();
 
-        var thrustVector = Vector.mult(facingVector, thrust);
-        var thrustPoint = Vector.add(self.getBody().position, Vector.neg(thrustVector));
+        if (thrust > 0) {
+            self.charging = true;
+            self.rideEntity.chargeThrust(deltaTime);
+        } else {
+            self.charging = false;
+            if (self.wasCharging) {
+                self.rideEntity.requestMove();
+            }
+        }
 
-        Body.applyForce(self.getBody(), thrustPoint, Vector.mult(thrustVector, self.getBody().mass * .001));
+        // var facingVector = self.getFacingVector();
+
+        // var thrustVector = Vector.mult(facingVector, thrust);
+        // var thrustPoint = Vector.add(self.getBody().position, Vector.neg(thrustVector));
+
+        // Body.applyForce(self.getBody(), thrustPoint, Vector.mult(thrustVector, self.getBody().mass * .001));
 
         Body.rotate(self.getBody(), .05 * rotation);
+
+        self.wasCharging = self.charging;
 
     } else {
         var thrustPoint = Vector.add(self.getBody().position, Vector.neg(self.inputVector));
@@ -110,6 +125,7 @@ Player.prototype.initStateMachine = function(BaseFSM) {
                     console.log("Player body id: " + self.body.id );
                 },
                 ride :  function(entity) {
+                    entity.override();
                     self.rideEntity = entity;
                     this.transition("riding");
                 }
@@ -126,6 +142,8 @@ Player.prototype.initStateMachine = function(BaseFSM) {
                     var displaceDir = Vector.perp(self.getFacingVector());
                     var displacePos = Vector.add(self.rideEntity.body.position, Vector.mult(displaceDir, 70));
                     Body.setPosition(self.body, displacePos);
+                    self.rideEntity.release();
+                    self.rideEntity = null;
 
                     this.transition("flying");
                 }

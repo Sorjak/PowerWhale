@@ -9677,7 +9677,7 @@
 	        self.targetPoint = new PIXI.Graphics();
 	        self.stage.addChild(self.targetPoint);
 
-	        var whaleProm = self.whaleManager.init(first_layer, 2);
+	        var whaleProm = self.whaleManager.init(first_layer, 10);
 
 	        self.player = new Player();
 	        var pProm = self.player.init(first_layer).then(function() {
@@ -9693,22 +9693,24 @@
 	};
 
 	Game.prototype.handleInput = function() {
+	    var moveVector = {x : 0, y : 0};
 	    if (this.input.anyKeysDown()) {
+
 	        if (this.input.isDown('W')) { // W
-	            this.player.move({x: 0, y: -1});
+	            moveVector = Vector.add(moveVector, {x: 0, y: -1});
 	        }
 	        if (this.input.isDown('A')) { // A
-	            this.player.move({x: -1, y: 0});
+	            moveVector = Vector.add(moveVector, {x: -1, y: 0});
 	        }    
 	        if (this.input.isDown('D')) { // D
-	            this.player.move({x: 1, y: 0});
+	            moveVector = Vector.add(moveVector, {x: 1, y: 0});
 	        }
 	        if (this.input.isDown('S')) { // S
-	            this.player.move({x: 0, y: 1});
+	            moveVector = Vector.add(moveVector, {x: 0, y: 1});
 	        }
-	    } else {
-	        this.player.move({x: 0, y: 0});
-	    }
+	    } 
+
+	    this.player.move(moveVector);
 	};
 
 	Game.prototype.update = function(deltaTime) {
@@ -9774,6 +9776,8 @@
 	    this.inputVector = {x: 0, y: 0};
 
 	    this.rideEntity = null;
+	    this.charging = false;
+	    this.wasCharging = false;
 
 	    this.tags.push("player");
 	}
@@ -9813,14 +9817,27 @@
 	        
 	        var thrust = -self.inputVector.y;
 	        var rotation = self.inputVector.x;
-	        var facingVector = self.getFacingVector();
 
-	        var thrustVector = Vector.mult(facingVector, thrust);
-	        var thrustPoint = Vector.add(self.getBody().position, Vector.neg(thrustVector));
+	        if (thrust > 0) {
+	            self.charging = true;
+	            self.rideEntity.chargeThrust(deltaTime);
+	        } else {
+	            self.charging = false;
+	            if (self.wasCharging) {
+	                self.rideEntity.requestMove();
+	            }
+	        }
 
-	        Body.applyForce(self.getBody(), thrustPoint, Vector.mult(thrustVector, self.getBody().mass * .001));
+	        // var facingVector = self.getFacingVector();
+
+	        // var thrustVector = Vector.mult(facingVector, thrust);
+	        // var thrustPoint = Vector.add(self.getBody().position, Vector.neg(thrustVector));
+
+	        // Body.applyForce(self.getBody(), thrustPoint, Vector.mult(thrustVector, self.getBody().mass * .001));
 
 	        Body.rotate(self.getBody(), .05 * rotation);
+
+	        self.wasCharging = self.charging;
 
 	    } else {
 	        var thrustPoint = Vector.add(self.getBody().position, Vector.neg(self.inputVector));
@@ -9867,6 +9884,7 @@
 	                    console.log("Player body id: " + self.body.id );
 	                },
 	                ride :  function(entity) {
+	                    entity.override();
 	                    self.rideEntity = entity;
 	                    this.transition("riding");
 	                }
@@ -9883,6 +9901,8 @@
 	                    var displaceDir = Vector.perp(self.getFacingVector());
 	                    var displacePos = Vector.add(self.rideEntity.body.position, Vector.mult(displaceDir, 70));
 	                    Body.setPosition(self.body, displacePos);
+	                    self.rideEntity.release();
+	                    self.rideEntity = null;
 
 	                    this.transition("flying");
 	                }
@@ -23355,11 +23375,18 @@
 	    var self = this;
 
 	    var output = null;
-	    for (var index in self.chunks) {
-	        var chunk = self.chunks[index];
-	        if (chunk && self.chunkContainsPoint(chunk, point)) {
-	            output = chunk;
-	        }
+	    // for (var index in self.chunks) {
+	    //     var chunk = self.chunks[index];
+	    //     if (chunk && self.chunkContainsPoint(chunk, point)) {
+	    //         output = chunk;
+	    //     }
+	    // }
+	    var x = Math.floor(point.x / self.width);
+	    var y = Math.floor(point.y / self.height);
+
+	    var chunk = self.chunks[x+"|"+y];
+	    if (chunk && self.chunkContainsPoint(chunk, point)) {
+	        output = chunk;
 	    }
 
 	    return output;
@@ -23538,8 +23565,6 @@
 
 	var Whale   = __webpack_require__(44);
 
-	var WhaleFSM = 
-
 
 	function WhaleManager(physicsWorld) {
 	    this.world = physicsWorld;
@@ -23556,8 +23581,8 @@
 	    var whalePromises = [];
 
 	    for (var i = 0; i < num_whales; i++) {
-	        var randx = Math.random() * 200;
-	        var randy = Math.random() * 300;
+	        var randx = Math.random() * stage.width;
+	        var randy = Math.random() * stage.height;
 
 	        var whale = new Whale({x: randx, y: randy});
 	        var whaleProm = whale.init(stage).then(function(new_whale) {
@@ -23591,7 +23616,6 @@
 	    self.entities.forEach(function(whale) {
 	        var vecToWhale = Vector.sub(point, whale.body.position);
 	        var length = Vector.magnitude(vecToWhale);
-	        console.log(length);
 
 	        if (length < minLength) {
 	            minLength = length;
@@ -23610,17 +23634,17 @@
 /* 44 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var Entity  = __webpack_require__(34),
-	    Util    = __webpack_require__(38),
-	    PIXI    = __webpack_require__(1);
+	var EntityAI    = __webpack_require__(45),
+	    Util        = __webpack_require__(38),
+	    PIXI        = __webpack_require__(1);
 
-	var Body    = __webpack_require__(2).Body,
-	    Bodies  = __webpack_require__(2).Bodies,
-	    Vector  = __webpack_require__(2).Vector,
-	    Common  = __webpack_require__(2).Common;
+	var Body        = __webpack_require__(2).Body,
+	    Bodies      = __webpack_require__(2).Bodies,
+	    Vector      = __webpack_require__(2).Vector,
+	    Common      = __webpack_require__(2).Common;
 
 	function Whale(pos) {
-	    Entity.call(this);
+	    EntityAI.call(this);
 
 	    this.tags.push("rideable");
 	    this.tags.push("whale");
@@ -23628,9 +23652,15 @@
 	    this.startPos = pos;
 
 	    this.rider = null;
+
+	    this.thrustPower = 0;
+	    this.thrustModifier = 2;
+	    this.forceThrustModifier = 6;
+
+	    this.fatigue = 0;
 	}
 
-	Whale.prototype = Object.create(Entity.prototype);
+	Whale.prototype = Object.create(EntityAI.prototype);
 	Whale.prototype.constructor = Whale;
 
 	// OVERRIDES
@@ -23638,14 +23668,18 @@
 	Whale.prototype.init = function(stage) {
 	    var self = this;
 
-	    return Entity.prototype.init.call(this, stage, "../images/whale_blue.png")
+	    return EntityAI.prototype.init.call(this, stage, "../images/whale_blue.png")
 	    .then(function() {
 	        self.body = Bodies.rectangle(
 	            self.startPos.x, self.startPos.y, 32, 134
 	        );
 
-	        self.info = new PIXI.Graphics();
-	        stage.addChild(self.info);
+	        Body.rotate(self.body, Math.random() * 3);
+
+	        // self.debugText = new PIXI.Text('',{fontFamily : 'Arial', fontSize: 12, fill : 0xffffff, align : 'center'});
+	        // self.debugText.position = new PIXI.Point(20, 10);
+
+	        // self.sprite.addChild(self.debugText);
 
 	        return self;
 	    });
@@ -23654,37 +23688,218 @@
 	Whale.prototype.update = function(deltaTime) {
 	    var self = this;
 
+	    // self.debugText.text = self.moveState.state;
 
-	    Entity.prototype.update.call(self, deltaTime);
+	    if (self.aiState.state == "roaming") {
+	        self.thrustPower += deltaTime * self.thrustModifier;
+	        self.moveState.thrust();
+	    }
+
+	    self.thrustPower = Math.min(1000, self.thrustPower);
+
+	    EntityAI.prototype.update.call(self, deltaTime);
 	};
 
 	Whale.prototype.onDown = function(event) {
 	    var self = this;
 
+	    var info = {
+	        id: self.body.id,
+	        aiState : self.aiState.state,
+	        moveState : self.moveState.state
+	    }
+	    console.log(info);
 
 
-	    Entity.prototype.onDown.call(self, event);
+	    EntityAI.prototype.onDown.call(self, event);
 	};
 
 	Whale.prototype.onUp = function(event) {
 	    var self = this;
 
-	    Entity.prototype.onUp.call(self, event);
+	    EntityAI.prototype.onUp.call(self, event);
 	};
 
 	Whale.prototype.initStateMachine = function(BaseFSM) {
 	    var self = this;
 
+	    var AI_FSM = EntityAI.prototype.initStateMachine.call(self, BaseFSM);
+	    self.aiState = new AI_FSM();
+
+	    var WhaleFSM = BaseFSM.extend({
+	        states: {
+	            init: {
+	                _onEnter : function() {
+	                    this.transition("preparing");
+	                }
+	            },
+	            preparing : {
+	                _onEnter : function() {
+	                    var waitTime = (Math.random() * 3000) + 1000;
+	                    this.timer = setTimeout( function() {
+	                        this.transition("prepared");
+	                    }.bind( this ), waitTime);
+	                },
+	                thrust : function() {
+	                    this.deferUntilTransition("prepared");
+	                },
+	                forceThrust : function() {
+
+	                    this.transition("thrusting");
+	                },
+	                _onExit: function() {
+	                    clearTimeout( this.timer );
+	                }                
+	            },
+	            prepared : {
+	                thrust : function() { 
+	                    this.cooldown = self.thrustPower * 8;
+	                    this.transition("thrusting"); 
+	                },
+	                forceThrust : function() { 
+	                    this.cooldown = self.thrustPower * 2;
+	                    this.transition("thrusting") 
+	                },
+	            },
+	            thrusting : {
+	                _onEnter : function() {
+	                    this.timer = setTimeout( function() {
+	                        this.transition("preparing");
+	                    }.bind( this ), this.cooldown );
+
+	                    self.thrustForward(self.thrustPower);
+	                },
+
+	                _onExit: function() {
+	                    clearTimeout( this.timer );
+	                    self.thrustPower = 0;
+	                }
+	            },
+	        },
+	        thrust : function() {
+	            this.handle("thrust");
+	        },
+	        forceThrust : function() {
+	            self.fatigue += 5;
+	            this.handle("forceThrust");
+	        }
+	    });
+
+	    self.moveState = new WhaleFSM();
+	};
+
+	// PRIVATE
+
+	Whale.prototype.thrustForward = function(force) {
+	    var self = this;
+
+	    var bod = self.getBody();
+	    var f_vec = self.getFacingVector();
+
+	    var thrust_force = Vector.mult(f_vec, bod.mass * force * .0001);
+
+	    var tail_vec = Vector.mult(Vector.neg(f_vec), (self.sprite.height/2) );
+	    var tail_point = Vector.add(bod.position, tail_vec);
+
+	    Body.applyForce(bod, tail_point, thrust_force);
+	};
+
+
+	// PUBLIC 
+
+	Whale.prototype.chargeThrust = function(deltaTime) {
+	    this.thrustPower += deltaTime * this.forceThrustModifier;
+	};
+
+	Whale.prototype.requestMove = function() {
+	    this.moveState.forceThrust();
+	};
+
+	module.exports = Whale;
+
+/***/ },
+/* 45 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var Entity  = __webpack_require__(34),
+	    Util    = __webpack_require__(38),
+	    PIXI    = __webpack_require__(1);
+
+	function EntityAI(pos) {
+	    Entity.call(this);
+
+	    this.aiState = null;
+
+	    this.manualControl = false;
+	}
+
+	EntityAI.prototype = Object.create(Entity.prototype);
+	EntityAI.prototype.constructor = EntityAI;
+
+	// OVERRIDES
+
+	EntityAI.prototype.init = function(stage, image_path) {
+	    return Entity.prototype.init.call(this, stage, image_path);
+	};
+
+	EntityAI.prototype.update = function(deltaTime) {
+	    Entity.prototype.update.call(this, deltaTime);
+	};
+
+	EntityAI.prototype.onDown = function(event) {
+	    Entity.prototype.onDown.call(this, event);
+	};
+
+	EntityAI.prototype.onUp = function(event) {
+	    Entity.prototype.onUp.call(this, event);
+	};
+
+	EntityAI.prototype.initStateMachine = function(BaseFSM) {
+	    var self = this;
+
 	    Entity.prototype.initStateMachine.call(self);
 
-	    
+	    var EntityAI_FSM = BaseFSM.extend({
+	        states: {
+	            init: {
+	                _onEnter : function() {
+	                    this.transition("roaming");
+	                }
+	            },
+	            roaming : {
+	                _onEnter : function() {
+	                    self.manualControl = false;
+	                },
+	                override : "overridden"
+	            },
+	            overridden : {
+	                _onEnter : function() {
+	                    self.manualControl = true;
+	                },
+	                release : "roaming"
+	            }
+	        },
+	        override : function() {
+	            this.handle("override");
+	        },
+	        release : function() {
+	            this.handle("release");
+	        }
+	    });
+
+	    return EntityAI_FSM;
 	};
 
 	// LOCAL
 
+	EntityAI.prototype.override = function() {
+	    this.aiState.override();
+	};
 
-
-	module.exports = Whale;
+	EntityAI.prototype.release = function() {
+	    this.aiState.release();
+	};
+	module.exports = EntityAI;
 
 /***/ }
 /******/ ]);

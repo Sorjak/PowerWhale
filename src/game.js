@@ -51,7 +51,7 @@ Game.prototype.start = function() {
         self.targetPoint = new PIXI.Graphics();
         self.stage.addChild(self.targetPoint);
 
-        var whaleProm = self.whaleManager.init(first_layer, 2);
+        var whaleProm = self.whaleManager.init(first_layer, 10);
 
         self.player = new Player();
         var pProm = self.player.init(first_layer).then(function() {
@@ -67,22 +67,24 @@ Game.prototype.start = function() {
 };
 
 Game.prototype.handleInput = function() {
+    var moveVector = {x : 0, y : 0};
     if (this.input.anyKeysDown()) {
+
         if (this.input.isDown('W')) { // W
-            this.player.move({x: 0, y: -1});
+            moveVector = Vector.add(moveVector, {x: 0, y: -1});
         }
         if (this.input.isDown('A')) { // A
-            this.player.move({x: -1, y: 0});
+            moveVector = Vector.add(moveVector, {x: -1, y: 0});
         }    
         if (this.input.isDown('D')) { // D
-            this.player.move({x: 1, y: 0});
+            moveVector = Vector.add(moveVector, {x: 1, y: 0});
         }
         if (this.input.isDown('S')) { // S
-            this.player.move({x: 0, y: 1});
+            moveVector = Vector.add(moveVector, {x: 0, y: 1});
         }
-    } else {
-        this.player.move({x: 0, y: 0});
-    }
+    } 
+
+    this.player.move(moveVector);
 };
 
 Game.prototype.update = function(deltaTime) {

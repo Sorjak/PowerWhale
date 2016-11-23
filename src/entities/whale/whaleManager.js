@@ -6,8 +6,6 @@ var PIXI    = require('pixi.js'),
 
 var Whale   = require('./whale.js');
 
-var WhaleFSM = 
-
 
 function WhaleManager(physicsWorld) {
     this.world = physicsWorld;
@@ -24,8 +22,8 @@ WhaleManager.prototype.init = function(stage, num_whales) {
     var whalePromises = [];
 
     for (var i = 0; i < num_whales; i++) {
-        var randx = Math.random() * 200;
-        var randy = Math.random() * 300;
+        var randx = Math.random() * stage.width;
+        var randy = Math.random() * stage.height;
 
         var whale = new Whale({x: randx, y: randy});
         var whaleProm = whale.init(stage).then(function(new_whale) {
@@ -59,7 +57,6 @@ WhaleManager.prototype.nearestWhale = function(point) {
     self.entities.forEach(function(whale) {
         var vecToWhale = Vector.sub(point, whale.body.position);
         var length = Vector.magnitude(vecToWhale);
-        console.log(length);
 
         if (length < minLength) {
             minLength = length;
