@@ -21,6 +21,8 @@ function Player() {
     this.charging = false;
     this.wasCharging = false;
 
+    this.energy = 1;
+
     this.tags.push("player");
 }
 
@@ -58,6 +60,8 @@ Player.prototype.update = function(deltaTime) {
     // var thrustPoint = Vector.add(self.getBody().position, Vector.neg(self.inputVector));
 
     // Body.applyForce(self.getBody(), thrustPoint, Vector.mult(self.inputVector, self.getBody().mass * .0001));
+
+    self.energy = Math.min(1, self.energy + (.0002 * deltaTime));
 
     Body.rotate(self.getBody(), self.inputVector.x * .1000);
 
@@ -145,9 +149,18 @@ Player.prototype.launch = function(point) {
     var launchDir = Vector.normalise(launchVector);
 
     var thrustPoint = Vector.add(origin, Vector.neg(launchDir));
-    var thrustForce = Vector.mult(launchVector, self.getBody().mass * .0001);
+    var thrustForce = self.getThrustForce(launchVector);
 
-    Body.applyForce(self.getBody(), thrustPoint, thrustForce);
+    var new_energy = self.energy - Vector.magnitude(thrustForce);
+
+    if (new_energy > 0) {
+        self.energy = new_energy;
+        Body.applyForce(self.getBody(), thrustPoint, thrustForce);
+    }
+};
+
+Player.prototype.getThrustForce = function(vector) {
+    return Vector.mult(vector, this.getBody().mass * .0001);
 };
 
 Player.prototype.move = function(vector) {

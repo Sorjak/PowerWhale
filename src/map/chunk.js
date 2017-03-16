@@ -27,7 +27,7 @@ Chunk.prototype.generate = function(renderer) {
         var stars = self._createStars(self.num_stars);
         self.container.addChild(stars);
 
-        var tex = self.container.generateTexture(renderer);
+        var tex = renderer.generateTexture(self.container);
         var output = new PIXI.Sprite(tex);
         output.position = new PIXI.Point(
             self.x * self.width, 

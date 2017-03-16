@@ -73,12 +73,7 @@ ChunkManager.prototype.getChunkFromPoint = function(point) {
     var self = this;
 
     var output = null;
-    // for (var index in self.chunks) {
-    //     var chunk = self.chunks[index];
-    //     if (chunk && self.chunkContainsPoint(chunk, point)) {
-    //         output = chunk;
-    //     }
-    // }
+    
     var x = Math.floor(point.x / self.width);
     var y = Math.floor(point.y / self.height);
 
