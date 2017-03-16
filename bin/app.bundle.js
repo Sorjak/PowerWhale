@@ -9630,6 +9630,7 @@
 	var Player  = __webpack_require__(33),
 	    Camera  = __webpack_require__(39),
 	    Input   = __webpack_require__(40),
+	    UI      = __webpack_require__(46),
 	    ChunkManager    = __webpack_require__(41),
 	    WhaleManager    = __webpack_require__(43);
 
@@ -9652,6 +9653,8 @@
 
 	    this.player = null;
 	    this.entities = [];
+
+	    this.launchLine = null;
 	}
 
 	Game.prototype.start = function() {
@@ -9671,6 +9674,8 @@
 
 	    self.input = new Input(self);
 
+	    self.ui = new UI(self);
+
 	    return self.chunkManager.init(background, self.initChunks)
 	        .then(function(chunkMap) {
 
@@ -9680,7 +9685,7 @@
 	        var whaleProm = self.whaleManager.init(first_layer, 10);
 
 	        self.player = new Player();
-	        var pProm = self.player.init(first_layer).then(function() {
+	        var playerProm = self.player.init(first_layer).then(function() {
 	            Body.translate(self.player.body, 
 	                {x: (self.stage.width / 2), y:(self.stage.height/2)}
 	            );
@@ -9688,7 +9693,7 @@
 	            self.camera.followEntity(self.player);
 	        });
 
-	        return Promise.all([whaleProm, pProm]);
+	        return Promise.all([whaleProm, playerProm]);
 	    });
 	};
 
@@ -9722,20 +9727,26 @@
 	    this.whaleManager.update(deltaTime);
 
 	    this.camera.update(deltaTime);
+	    this.ui.update(deltaTime);
 	};
 
 	Game.prototype.handleMouse = function(event) {
 	    var self = this;
-	    // Check if we are the target of the click.
 
+	    // This is to check if we are clicking empty space
 	    if (event.data.target.parent == null) {
-	        self.player.dismount();
-	    } else {
 	        var worldPoint = self.camera.screenToWorld(event.data.global);
 
-	        var nearest = self.whaleManager.nearestWhale(worldPoint);
-	        self.player.rideWhale(nearest);
+	        if (event.type == "pointerdown") {
+	            self.ui.toggleLaunchLine(true);
+	        }
+
+	        else if (event.type == "pointerup") {
+	            self.ui.toggleLaunchLine(false);
+	            self.player.launch(worldPoint);
+	        }
 	    }
+
 	};
 
 	Game.prototype.getEntitiesByTag = function(tag) {
@@ -9774,6 +9785,7 @@
 	    this.backupBody = null;
 
 	    this.inputVector = {x: 0, y: 0};
+	    this.launchOrigin = null;
 
 	    this.rideEntity = null;
 	    this.charging = false;
@@ -9813,37 +9825,11 @@
 
 	    self.debugText.text = self.stateMachine.state;
 
-	    if (self.stateMachine.state == "riding") {
-	        
-	        var thrust = -self.inputVector.y;
-	        var rotation = self.inputVector.x;
+	    // var thrustPoint = Vector.add(self.getBody().position, Vector.neg(self.inputVector));
 
-	        if (thrust > 0) {
-	            self.charging = true;
-	            self.rideEntity.chargeThrust(deltaTime);
-	        } else {
-	            self.charging = false;
-	            if (self.wasCharging) {
-	                self.rideEntity.requestMove();
-	            }
-	        }
+	    // Body.applyForce(self.getBody(), thrustPoint, Vector.mult(self.inputVector, self.getBody().mass * .0001));
 
-	        // var facingVector = self.getFacingVector();
-
-	        // var thrustVector = Vector.mult(facingVector, thrust);
-	        // var thrustPoint = Vector.add(self.getBody().position, Vector.neg(thrustVector));
-
-	        // Body.applyForce(self.getBody(), thrustPoint, Vector.mult(thrustVector, self.getBody().mass * .001));
-
-	        Body.rotate(self.getBody(), .05 * rotation);
-
-	        self.wasCharging = self.charging;
-
-	    } else {
-	        var thrustPoint = Vector.add(self.getBody().position, Vector.neg(self.inputVector));
-
-	        Body.applyForce(self.getBody(), thrustPoint, Vector.mult(self.inputVector, self.getBody().mass * .0001));
-	    }
+	    Body.rotate(self.getBody(), self.inputVector.x * .1000);
 
 	    Entity.prototype.update.call(self, deltaTime);
 	};
@@ -9917,10 +9903,22 @@
 	    });
 
 	    this.stateMachine = new PlayerFSM();
-	    console.log(this.stateMachine);
 	};
 
-	// LOCAL
+	// PUBLIC
+
+	Player.prototype.launch = function(point) {
+	    var self = this;
+
+	    var origin = self.getPosition();
+	    var launchVector = Vector.sub(point, origin);
+	    var launchDir = Vector.normalise(launchVector);
+
+	    var thrustPoint = Vector.add(origin, Vector.neg(launchDir));
+	    var thrustForce = Vector.mult(launchVector, self.getBody().mass * .0001);
+
+	    Body.applyForce(self.getBody(), thrustPoint, thrustForce);
+	};
 
 	Player.prototype.move = function(vector) {
 	    var self = this;
@@ -9930,13 +9928,11 @@
 
 	Player.prototype.rideWhale = function(whale) {
 	    this.stateMachine.rideWhale(whale);
-	}
+	};
 
 	Player.prototype.dismount = function() {
 	    this.stateMachine.dismount();
 	};
-
-
 
 	module.exports = Player;
 
@@ -10006,6 +10002,9 @@
 
 	Entity.prototype.onUp = function(event) {};
 
+	Entity.prototype.getPosition = function() {
+	    return this.getBody().position;
+	};
 
 	Entity.prototype.getFacingVector = function() {
 	    return Vector.normalise( {x: Math.sin(this.getBody().angle), y: -Math.cos(this.getBody().angle)} );
@@ -10020,14 +10019,14 @@
 	Entity.prototype._bindListeners = function () {
 	    var self = this;
 
-	    this.sprite.on('mousedown', function(e) {
+	    this.sprite.on('pointerdown', function(e) {
 	        self.onDown(e);
 	    });
 	    this.sprite.on('touchstart', function(e) {
 	        self.onDown(e);
 	    });
 
-	    this.sprite.on('mouseup', function(e) {
+	    this.sprite.on('pointerup', function(e) {
 	        self.onUp(e);
 	    });
 	};
@@ -23201,13 +23200,6 @@
 	    self.stage.position = self.offset;
 	};
 
-	Camera.prototype.onDown = function(event) {
-
-	};
-
-	Camera.prototype.onUp = function(event) {
-
-	};
 
 	Camera.prototype.moveScreen = function(vector) {
 	    this.offset = Vector.add(this.offset, vector);
@@ -23245,15 +23237,22 @@
 	        'W' : 87,
 	        'S' : 83,
 	    };
+
+	    this.mouseDown = false;
+	    this.mousePosition = null;
 	}
 
 
 	Input.prototype.onMouseDown = function(event) {
+	    this.mouseDown = true;
+	    this.mousePosition = event.data.global;
 	    this.game.handleMouse(event);
 	};
 
 	Input.prototype.onMouseUp = function(event) {
-
+	    this.mouseDown = false;
+	    this.mousePosition = null;
+	    this.game.handleMouse(event);
 	};
 
 	Input.prototype.onKeyDown = function(event) {
@@ -23267,14 +23266,14 @@
 	Input.prototype._bindListeners = function() {
 	    var self = this;
 
-	    this.game.stage.on('mousedown', function(e) {
+	    this.game.stage.on('pointerdown', function(e) {
 	        self.onMouseDown(e);
 	    });
 	    this.game.stage.on('touchstart', function(e) {
 	        self.onMouseDown(e);
 	    });
 
-	    this.game.stage.on('mouseup', function(e) {
+	    this.game.stage.on('pointerup', function(e) {
 	        self.onMouseUp(e);
 	    });
 
@@ -23605,7 +23604,7 @@
 	    });
 	}
 
-	// LOCAL
+	// PUBLIC
 
 	WhaleManager.prototype.nearestWhale = function(point) {
 	    var self = this;
@@ -23654,8 +23653,8 @@
 	    this.rider = null;
 
 	    this.thrustPower = 0;
-	    this.thrustModifier = 2;
-	    this.forceThrustModifier = 6;
+	    this.thrustModifier = .7;
+	    this.forceThrustModifier = 4;
 
 	    this.fatigue = 0;
 	}
@@ -23809,6 +23808,8 @@
 
 	Whale.prototype.chargeThrust = function(deltaTime) {
 	    this.thrustPower += deltaTime * this.forceThrustModifier;
+
+	    this.thrustPower = Math.min(1000, this.thrustPower);
 	};
 
 	Whale.prototype.requestMove = function() {
@@ -23900,6 +23901,55 @@
 	    this.aiState.release();
 	};
 	module.exports = EntityAI;
+
+/***/ },
+/* 46 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var PIXI = __webpack_require__(1),
+	    Vector = __webpack_require__(2).Vector;
+
+	function UI(game) {
+	    var self = this;
+
+	    self.game = game;
+	    self.stage = game.stage;
+
+	    self.launchLine = new PIXI.Graphics().lineStyle(2, 0xffffff);
+
+	    self.stage.addChild(self.launchLine);
+
+	    self.showLaunchLine = false;
+
+	}
+
+	UI.prototype.update = function(deltaTime) {
+	    var self = this;
+
+	    self.launchLine.clear();
+
+	    if (self.showLaunchLine) {
+	        var playerPos = self.game.player.getPosition();
+	        var mousePos = self.game.input.mousePosition;
+	        var worldPos = self.game.camera.screenToWorld(mousePos);
+
+	        self.drawLaunchLine(playerPos, worldPos);
+	    }
+	};
+
+	UI.prototype.drawLaunchLine = function(origin, end) {
+	    var self = this;
+
+	    self.launchLine.lineStyle(2, 0xffffff);
+	    self.launchLine.moveTo(origin.x, origin.y);
+	    self.launchLine.lineTo(end.x, end.y);
+	};
+
+	UI.prototype.toggleLaunchLine = function(value) {
+	    this.showLaunchLine = value;
+	};
+
+	module.exports = UI;
 
 /***/ }
 /******/ ]);

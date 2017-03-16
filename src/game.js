@@ -4,6 +4,7 @@ var World   = require("matter-js").World,
 var Player  = require("./entities/player/player.js"),
     Camera  = require('./camera.js'),
     Input   = require('./input.js'),
+    UI      = require('./ui.js'),
     ChunkManager    = require('./map/chunkManager.js'),
     WhaleManager    = require('./entities/whale/whaleManager.js');
 
@@ -26,6 +27,8 @@ function Game(renderer, world, width, height) {
 
     this.player = null;
     this.entities = [];
+
+    this.launchLine = null;
 }
 
 Game.prototype.start = function() {
@@ -45,6 +48,8 @@ Game.prototype.start = function() {
 
     self.input = new Input(self);
 
+    self.ui = new UI(self);
+
     return self.chunkManager.init(background, self.initChunks)
         .then(function(chunkMap) {
 
@@ -54,7 +59,7 @@ Game.prototype.start = function() {
         var whaleProm = self.whaleManager.init(first_layer, 10);
 
         self.player = new Player();
-        var pProm = self.player.init(first_layer).then(function() {
+        var playerProm = self.player.init(first_layer).then(function() {
             Body.translate(self.player.body, 
                 {x: (self.stage.width / 2), y:(self.stage.height/2)}
             );
@@ -62,7 +67,7 @@ Game.prototype.start = function() {
             self.camera.followEntity(self.player);
         });
 
-        return Promise.all([whaleProm, pProm]);
+        return Promise.all([whaleProm, playerProm]);
     });
 };
 
@@ -96,20 +101,26 @@ Game.prototype.update = function(deltaTime) {
     this.whaleManager.update(deltaTime);
 
     this.camera.update(deltaTime);
+    this.ui.update(deltaTime);
 };
 
 Game.prototype.handleMouse = function(event) {
     var self = this;
-    // Check if we are the target of the click.
 
+    // This is to check if we are clicking empty space
     if (event.data.target.parent == null) {
-        self.player.dismount();
-    } else {
         var worldPoint = self.camera.screenToWorld(event.data.global);
 
-        var nearest = self.whaleManager.nearestWhale(worldPoint);
-        self.player.rideWhale(nearest);
+        if (event.type == "pointerdown") {
+            self.ui.toggleLaunchLine(true);
+        }
+
+        else if (event.type == "pointerup") {
+            self.ui.toggleLaunchLine(false);
+            self.player.launch(worldPoint);
+        }
     }
+
 };
 
 Game.prototype.getEntitiesByTag = function(tag) {

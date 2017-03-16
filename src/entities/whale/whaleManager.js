@@ -46,7 +46,7 @@ WhaleManager.prototype.update = function(deltaTime) {
     });
 }
 
-// LOCAL
+// PUBLIC
 
 WhaleManager.prototype.nearestWhale = function(point) {
     var self = this;

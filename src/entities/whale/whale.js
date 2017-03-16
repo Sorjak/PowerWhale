@@ -18,8 +18,8 @@ function Whale(pos) {
     this.rider = null;
 
     this.thrustPower = 0;
-    this.thrustModifier = 2;
-    this.forceThrustModifier = 6;
+    this.thrustModifier = .7;
+    this.forceThrustModifier = 4;
 
     this.fatigue = 0;
 }
@@ -173,6 +173,8 @@ Whale.prototype.thrustForward = function(force) {
 
 Whale.prototype.chargeThrust = function(deltaTime) {
     this.thrustPower += deltaTime * this.forceThrustModifier;
+
+    this.thrustPower = Math.min(1000, this.thrustPower);
 };
 
 Whale.prototype.requestMove = function() {

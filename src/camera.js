@@ -28,13 +28,6 @@ Camera.prototype.update = function(deltaTime) {
     self.stage.position = self.offset;
 };
 
-Camera.prototype.onDown = function(event) {
-
-};
-
-Camera.prototype.onUp = function(event) {
-
-};
 
 Camera.prototype.moveScreen = function(vector) {
     this.offset = Vector.add(this.offset, vector);

@@ -11,15 +11,22 @@ function Input(game) {
         'W' : 87,
         'S' : 83,
     };
+
+    this.mouseDown = false;
+    this.mousePosition = null;
 }
 
 
 Input.prototype.onMouseDown = function(event) {
+    this.mouseDown = true;
+    this.mousePosition = event.data.global;
     this.game.handleMouse(event);
 };
 
 Input.prototype.onMouseUp = function(event) {
-
+    this.mouseDown = false;
+    this.mousePosition = null;
+    this.game.handleMouse(event);
 };
 
 Input.prototype.onKeyDown = function(event) {
@@ -33,14 +40,14 @@ Input.prototype.onKeyUp = function(event) {
 Input.prototype._bindListeners = function() {
     var self = this;
 
-    this.game.stage.on('mousedown', function(e) {
+    this.game.stage.on('pointerdown', function(e) {
         self.onMouseDown(e);
     });
     this.game.stage.on('touchstart', function(e) {
         self.onMouseDown(e);
     });
 
-    this.game.stage.on('mouseup', function(e) {
+    this.game.stage.on('pointerup', function(e) {
         self.onMouseUp(e);
     });
 

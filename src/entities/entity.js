@@ -60,6 +60,9 @@ Entity.prototype.onDown = function(event) {};
 
 Entity.prototype.onUp = function(event) {};
 
+Entity.prototype.getPosition = function() {
+    return this.getBody().position;
+};
 
 Entity.prototype.getFacingVector = function() {
     return Vector.normalise( {x: Math.sin(this.getBody().angle), y: -Math.cos(this.getBody().angle)} );
@@ -74,14 +77,14 @@ Entity.prototype.getBody = function() {
 Entity.prototype._bindListeners = function () {
     var self = this;
 
-    this.sprite.on('mousedown', function(e) {
+    this.sprite.on('pointerdown', function(e) {
         self.onDown(e);
     });
     this.sprite.on('touchstart', function(e) {
         self.onDown(e);
     });
 
-    this.sprite.on('mouseup', function(e) {
+    this.sprite.on('pointerup', function(e) {
         self.onUp(e);
     });
 };

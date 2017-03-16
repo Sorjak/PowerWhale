@@ -15,6 +15,7 @@ function Player() {
     this.backupBody = null;
 
     this.inputVector = {x: 0, y: 0};
+    this.launchOrigin = null;
 
     this.rideEntity = null;
     this.charging = false;
@@ -54,37 +55,11 @@ Player.prototype.update = function(deltaTime) {
 
     self.debugText.text = self.stateMachine.state;
 
-    if (self.stateMachine.state == "riding") {
-        
-        var thrust = -self.inputVector.y;
-        var rotation = self.inputVector.x;
+    // var thrustPoint = Vector.add(self.getBody().position, Vector.neg(self.inputVector));
 
-        if (thrust > 0) {
-            self.charging = true;
-            self.rideEntity.chargeThrust(deltaTime);
-        } else {
-            self.charging = false;
-            if (self.wasCharging) {
-                self.rideEntity.requestMove();
-            }
-        }
+    // Body.applyForce(self.getBody(), thrustPoint, Vector.mult(self.inputVector, self.getBody().mass * .0001));
 
-        // var facingVector = self.getFacingVector();
-
-        // var thrustVector = Vector.mult(facingVector, thrust);
-        // var thrustPoint = Vector.add(self.getBody().position, Vector.neg(thrustVector));
-
-        // Body.applyForce(self.getBody(), thrustPoint, Vector.mult(thrustVector, self.getBody().mass * .001));
-
-        Body.rotate(self.getBody(), .05 * rotation);
-
-        self.wasCharging = self.charging;
-
-    } else {
-        var thrustPoint = Vector.add(self.getBody().position, Vector.neg(self.inputVector));
-
-        Body.applyForce(self.getBody(), thrustPoint, Vector.mult(self.inputVector, self.getBody().mass * .0001));
-    }
+    Body.rotate(self.getBody(), self.inputVector.x * .1000);
 
     Entity.prototype.update.call(self, deltaTime);
 };
@@ -158,10 +133,22 @@ Player.prototype.initStateMachine = function(BaseFSM) {
     });
 
     this.stateMachine = new PlayerFSM();
-    console.log(this.stateMachine);
 };
 
-// LOCAL
+// PUBLIC
+
+Player.prototype.launch = function(point) {
+    var self = this;
+
+    var origin = self.getPosition();
+    var launchVector = Vector.sub(point, origin);
+    var launchDir = Vector.normalise(launchVector);
+
+    var thrustPoint = Vector.add(origin, Vector.neg(launchDir));
+    var thrustForce = Vector.mult(launchVector, self.getBody().mass * .0001);
+
+    Body.applyForce(self.getBody(), thrustPoint, thrustForce);
+};
 
 Player.prototype.move = function(vector) {
     var self = this;
@@ -171,12 +158,10 @@ Player.prototype.move = function(vector) {
 
 Player.prototype.rideWhale = function(whale) {
     this.stateMachine.rideWhale(whale);
-}
+};
 
 Player.prototype.dismount = function() {
     this.stateMachine.dismount();
 };
-
-
 
 module.exports = Player;
