@@ -15,15 +15,19 @@ function UI(game) {
     self.energyBox = new PIXI.Graphics().lineStyle(1, 0xffffff);
     self.energyLevel = .5;
 
+    self.debugText = new PIXI.Text('', {fontFamily : 'Arial', fontSize: 12, fill : 0xffffff, align : 'center'});
+    
     self.container.addChild(self.launchLine);
     self.container.addChild(self.energyBox);
+    self.container.addChild(self.debugText);
 
 }
 
 UI.prototype.update = function(deltaTime) {
     var self = this;
 
-    var playerEnergy = self.game.player.energy;
+    var player = self.game.player;
+    var ui_rect = self.getUIRectangle();
 
     self.launchLine.clear();
 
@@ -35,12 +39,13 @@ UI.prototype.update = function(deltaTime) {
         var launchVector = Vector.sub(worldPos, playerPos);
         var thrustForce = self.game.player.getThrustForce(launchVector);
 
-        var color = Vector.magnitude(thrustForce) <= playerEnergy ? self.successColor : self.failureColor;
+        var color = Vector.magnitude(thrustForce) <= player.energy ? self.successColor : self.failureColor;
 
         self.drawLaunchLine(playerPos, worldPos, color);
     }
 
-    self.drawEnergyBox(playerEnergy);
+    self.drawEnergyBox(ui_rect, player.energy);
+    self.drawDebugText(ui_rect, player);
 
 };
 
@@ -54,11 +59,10 @@ UI.prototype.drawLaunchLine = function(origin, end, color) {
     self.launchLine.lineTo(end.x, end.y);
 };
 
-UI.prototype.drawEnergyBox = function(level) {
+UI.prototype.drawEnergyBox = function(rect, level) {
     var self = this;
 
-    var ui_rect = self.getUIRectangle();
-    var boundingRect = new PIXI.Rectangle(ui_rect.x + ui_rect.width - 105, ui_rect.y + ui_rect.height - 20, 100, 15);
+    var boundingRect = new PIXI.Rectangle(rect.x + rect.width - 105, rect.y + rect.height - 20, 100, 15);
     var energyRect = new PIXI.Rectangle(boundingRect.x, boundingRect.y, boundingRect.width * level, boundingRect.height);
 
     self.energyBox.clear();
@@ -70,6 +74,17 @@ UI.prototype.drawEnergyBox = function(level) {
     self.energyBox.drawShape(energyRect);
 };
 
+UI.prototype.drawDebugText = function(rect, player) {
+    var self = this;
+
+    self.debugText.position = {x: rect.x + rect.width - 200, y: rect.y + rect.height - 20};
+
+    var playerPos = player.getPosition();
+    var shortPos = {x: Math.floor(playerPos.x), y: Math.floor(playerPos.y) };
+
+    self.debugText.text = "x: " + shortPos.x + ", y: " + shortPos.y;
+};
+
 UI.prototype.getUIRectangle = function() {
     var self = this;
 
@@ -77,7 +92,7 @@ UI.prototype.getUIRectangle = function() {
     var screen_pos = {x: 0, y: 0}
     var world_pos = Vector.sub(screen_pos, stage_pos)
 
-    return new PIXI.Rectangle(world_pos.x, world_pos.y, self.game.width, self.game.height);
+    return new PIXI.Rectangle(world_pos.x, world_pos.y, self.game.screen_width, self.game.screen_height);
 };
 
 // PUBLIC

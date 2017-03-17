@@ -1,4 +1,6 @@
 var World   = require("matter-js").World,
+    Bounds  = require("matter-js").Bounds,
+    Bodies  = require("matter-js").Bodies,
     Body    = require("matter-js").Body;
 
 var Player  = require("./entities/player/player.js"),
@@ -7,35 +9,41 @@ var Player  = require("./entities/player/player.js"),
     UI      = require('./ui.js'),
     ChunkManager    = require('./map/chunkManager.js'),
     WhaleManager    = require('./entities/whale/whaleManager.js'),
-    Planet  = require("./entities/planet.js");
+    PlanetManager   = require("./entities/planet/planetManager.js");
 
 function Game(renderer, world, width, height) {
+    
+    this.world = world;
+
+    this.screen_width = width;
+    this.screen_height = height;
+
+    this.world_width = 24000;
+    this.world_height = 24000;
+
+    this.setWorldOptions();
+
     this.camera = null;
-
-    world.bounds.min.x = -Math.Infinity;
-    world.bounds.min.y = -Math.Infinity;
-    world.bounds.max.x = Math.Infinity;
-    world.bounds.max.y = Math.Infinity;
-
-    this.width = width;
-    this.height = height;
-
     this.stage = null;
     this.ui_container = null;
-    this.world = world;
-    this.chunkManager = new ChunkManager(renderer, this.width, this.height);
-    this.whaleManager = new WhaleManager(world);
+
+    this.chunkManager = new ChunkManager(renderer, 
+        {x: this.world_width, y: this.world_height},
+        {x: 800, y: 600}
+    );
+    this.whaleManager = new WhaleManager(this);
+    this.planetManager = new PlanetManager(this);
     this.initChunks = 5;
 
     this.player = null;
     this.entities = [];
 
+    this.debug = true;
+
 }
 
 Game.prototype.start = function() {
     var self = this;
-
-    self.setWorldOptions();
 
     self.stage = new PIXI.Container();
     self.stage.interactive = true;
@@ -49,7 +57,6 @@ Game.prototype.start = function() {
     self.ui_container = new PIXI.Container();
     self.stage.addChild(self.ui_container);
 
-
     self.camera = new Camera(self);
     self.input = new Input(self);
     self.ui = new UI(self);
@@ -62,22 +69,14 @@ Game.prototype.start = function() {
         self.targetPoint = new PIXI.Graphics();
         self.stage.addChild(self.targetPoint);
 
-        self.planet = new Planet();
-        var planetProm = self.planet.init(first_layer).then(function() {
-            
-            Body.translate(self.planet.body, 
-                {x: (self.stage.width / 2), y:(self.stage.height/2)}
-            );
-            console.log(self.planet.body);
-            World.addBody(self.world, self.planet.body);
-        });
+        var planetProm = self.planetManager.init(first_layer, 5);
 
         var whaleProm = self.whaleManager.init(first_layer, 10);
 
         self.player = new Player();
         var playerProm = self.player.init(first_layer).then(function() {
             Body.translate(self.player.body, 
-                {x: (self.stage.width / 2) - 200, y:(self.stage.height/2)}
+                {x: (self.stage.width / 2) , y:(self.stage.height / 2)}
             );
             World.addBody(self.world, self.player.body);
             self.camera.followEntity(self.player);
@@ -88,6 +87,19 @@ Game.prototype.start = function() {
 };
 
 Game.prototype.setWorldOptions = function() {
+    this.world.bounds.min.x = -Math.Infinity;
+    this.world.bounds.min.y = -Math.Infinity;
+    this.world.bounds.max.x = Math.Infinity;
+    this.world.bounds.max.y = Math.Infinity;
+
+    World.add(this.world, [
+        // walls
+        Bodies.rectangle(0, -(this.world_height / 2), this.world_width, 10, { isStatic: true }),
+        Bodies.rectangle(-(this.world_width / 2), 0, 10, this.world_height - 20, { isStatic: true }),
+        Bodies.rectangle(0, this.world_height / 2, this.world_width, 10, { isStatic: true }),
+        Bodies.rectangle(this.world_width / 2, 0, 10, this.world_height - 20, { isStatic: true }),
+    ]);
+
     this.world.gravity.y = 0;
 
 };
@@ -115,15 +127,20 @@ Game.prototype.handleInput = function() {
 
 Game.prototype.update = function(deltaTime) {
     this.handleInput();
-
-    this.planet.update(deltaTime);
     this.player.update(deltaTime);
 
     this.chunkManager.update(deltaTime, this.player);
+    this.planetManager.update(deltaTime);
     this.whaleManager.update(deltaTime);
 
     this.camera.update(deltaTime);
     this.ui.update(deltaTime);
+
+    if (this.debug) {
+        this.player.debug();
+        this.planetManager.debug();
+    }
+
 };
 
 Game.prototype.handleMouse = function(event) {
@@ -133,10 +150,10 @@ Game.prototype.handleMouse = function(event) {
     
     // Check if we are in game window
     if ((clickPoint.x > 0 && clickPoint.y > 0) &&
-        (clickPoint.x <= self.width && clickPoint.y <= self.height)) {
+        (clickPoint.x <= self.screen_width && clickPoint.y <= self.screen_height)) {
 
         // This is to check if we are clicking empty space
-        if (event.target.parent == null) {
+        // if (event.target.parent == null) {
             var worldPoint = self.camera.screenToWorld(clickPoint);
 
             if (event.type == "pointerdown") {
@@ -147,6 +164,11 @@ Game.prototype.handleMouse = function(event) {
                 self.ui.toggleLaunchLine(false);
                 self.player.launch(worldPoint);
             }
+        // }
+    } else {
+        if (event.type == "pointerup") {
+            self.ui.toggleLaunchLine(false);
+            self.player.launch(self.player.getPosition());
         }
     }
 

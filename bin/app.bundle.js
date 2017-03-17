@@ -48337,6 +48337,8 @@
 /***/ function(module, exports, __webpack_require__) {
 
 	var World   = __webpack_require__(186).World,
+	    Bounds  = __webpack_require__(186).Bounds,
+	    Bodies  = __webpack_require__(186).Bodies,
 	    Body    = __webpack_require__(186).Body;
 
 	var Player  = __webpack_require__(217),
@@ -48345,35 +48347,41 @@
 	    UI      = __webpack_require__(224),
 	    ChunkManager    = __webpack_require__(225),
 	    WhaleManager    = __webpack_require__(227),
-	    Planet  = __webpack_require__(230);
+	    PlanetManager   = __webpack_require__(230);
 
 	function Game(renderer, world, width, height) {
+	    
+	    this.world = world;
+
+	    this.screen_width = width;
+	    this.screen_height = height;
+
+	    this.world_width = 24000;
+	    this.world_height = 24000;
+
+	    this.setWorldOptions();
+
 	    this.camera = null;
-
-	    world.bounds.min.x = -Math.Infinity;
-	    world.bounds.min.y = -Math.Infinity;
-	    world.bounds.max.x = Math.Infinity;
-	    world.bounds.max.y = Math.Infinity;
-
-	    this.width = width;
-	    this.height = height;
-
 	    this.stage = null;
 	    this.ui_container = null;
-	    this.world = world;
-	    this.chunkManager = new ChunkManager(renderer, this.width, this.height);
-	    this.whaleManager = new WhaleManager(world);
+
+	    this.chunkManager = new ChunkManager(renderer, 
+	        {x: this.world_width, y: this.world_height},
+	        {x: 800, y: 600}
+	    );
+	    this.whaleManager = new WhaleManager(this);
+	    this.planetManager = new PlanetManager(this);
 	    this.initChunks = 5;
 
 	    this.player = null;
 	    this.entities = [];
 
+	    this.debug = true;
+
 	}
 
 	Game.prototype.start = function() {
 	    var self = this;
-
-	    self.setWorldOptions();
 
 	    self.stage = new PIXI.Container();
 	    self.stage.interactive = true;
@@ -48387,7 +48395,6 @@
 	    self.ui_container = new PIXI.Container();
 	    self.stage.addChild(self.ui_container);
 
-
 	    self.camera = new Camera(self);
 	    self.input = new Input(self);
 	    self.ui = new UI(self);
@@ -48400,22 +48407,14 @@
 	        self.targetPoint = new PIXI.Graphics();
 	        self.stage.addChild(self.targetPoint);
 
-	        self.planet = new Planet();
-	        var planetProm = self.planet.init(first_layer).then(function() {
-	            
-	            Body.translate(self.planet.body, 
-	                {x: (self.stage.width / 2), y:(self.stage.height/2)}
-	            );
-	            console.log(self.planet.body);
-	            World.addBody(self.world, self.planet.body);
-	        });
+	        var planetProm = self.planetManager.init(first_layer, 5);
 
 	        var whaleProm = self.whaleManager.init(first_layer, 10);
 
 	        self.player = new Player();
 	        var playerProm = self.player.init(first_layer).then(function() {
 	            Body.translate(self.player.body, 
-	                {x: (self.stage.width / 2) - 200, y:(self.stage.height/2)}
+	                {x: (self.stage.width / 2) , y:(self.stage.height / 2)}
 	            );
 	            World.addBody(self.world, self.player.body);
 	            self.camera.followEntity(self.player);
@@ -48426,6 +48425,19 @@
 	};
 
 	Game.prototype.setWorldOptions = function() {
+	    this.world.bounds.min.x = -Math.Infinity;
+	    this.world.bounds.min.y = -Math.Infinity;
+	    this.world.bounds.max.x = Math.Infinity;
+	    this.world.bounds.max.y = Math.Infinity;
+
+	    World.add(this.world, [
+	        // walls
+	        Bodies.rectangle(0, -(this.world_height / 2), this.world_width, 10, { isStatic: true }),
+	        Bodies.rectangle(-(this.world_width / 2), 0, 10, this.world_height - 20, { isStatic: true }),
+	        Bodies.rectangle(0, this.world_height / 2, this.world_width, 10, { isStatic: true }),
+	        Bodies.rectangle(this.world_width / 2, 0, 10, this.world_height - 20, { isStatic: true }),
+	    ]);
+
 	    this.world.gravity.y = 0;
 
 	};
@@ -48453,15 +48465,20 @@
 
 	Game.prototype.update = function(deltaTime) {
 	    this.handleInput();
-
-	    this.planet.update(deltaTime);
 	    this.player.update(deltaTime);
 
 	    this.chunkManager.update(deltaTime, this.player);
+	    this.planetManager.update(deltaTime);
 	    this.whaleManager.update(deltaTime);
 
 	    this.camera.update(deltaTime);
 	    this.ui.update(deltaTime);
+
+	    if (this.debug) {
+	        this.player.debug();
+	        this.planetManager.debug();
+	    }
+
 	};
 
 	Game.prototype.handleMouse = function(event) {
@@ -48471,10 +48488,10 @@
 	    
 	    // Check if we are in game window
 	    if ((clickPoint.x > 0 && clickPoint.y > 0) &&
-	        (clickPoint.x <= self.width && clickPoint.y <= self.height)) {
+	        (clickPoint.x <= self.screen_width && clickPoint.y <= self.screen_height)) {
 
 	        // This is to check if we are clicking empty space
-	        if (event.target.parent == null) {
+	        // if (event.target.parent == null) {
 	            var worldPoint = self.camera.screenToWorld(clickPoint);
 
 	            if (event.type == "pointerdown") {
@@ -48485,6 +48502,11 @@
 	                self.ui.toggleLaunchLine(false);
 	                self.player.launch(worldPoint);
 	            }
+	        // }
+	    } else {
+	        if (event.type == "pointerup") {
+	            self.ui.toggleLaunchLine(false);
+	            self.player.launch(self.player.getPosition());
 	        }
 	    }
 
@@ -48522,17 +48544,23 @@
 	function Player() {
 	    Entity.call(this);
 
+	    this.info = new PIXI.Graphics();
+
 	    this.body = null;
 	    this.backupBody = null;
 
 	    this.inputVector = {x: 0, y: 0};
+	    this.rotateRate = .1;
+
 	    this.launchOrigin = null;
+	    this.launchModifier = .0001;
 
 	    this.rideEntity = null;
 	    this.charging = false;
 	    this.wasCharging = false;
 
-	    this.energy = 1;
+	    this.energy = 0;
+	    this.energyRate = .0002;
 
 	    this.tags.push("player");
 	}
@@ -48550,17 +48578,13 @@
 	        // Body.translate(self.body, {x: stage.width / 2, y: stage.height / 2});
 
 	        self.body = Bodies.circle(
-	            0, 0, 32
+	            0, 0, 24
 	        );
 
-	        self.body.frictionAir = 0;
+	        self.body.frictionAir = .000000001;
 
-	        // self.info = new PIXI.Graphics();
-	        self.debugText = new PIXI.Text('',{fontFamily : 'Arial', fontSize: 12, fill : 0xffffff, align : 'center'});
-	        self.debugText.position = new PIXI.Point(20, 10);
-	        // stage.addChild(self.info);
-
-	        self.sprite.addChild(self.debugText);
+	        
+	        stage.addChild(self.info);
 	        
 	    });
 	};
@@ -48568,16 +48592,14 @@
 	Player.prototype.update = function(deltaTime) {
 	    var self = this;
 
-	    self.debugText.text = self.stateMachine.state;
-
 	    // var thrustPoint = Vector.add(self.getBody().position, Vector.neg(self.inputVector));
 
 	    // Body.applyForce(self.getBody(), thrustPoint, Vector.mult(self.inputVector, self.getBody().mass * .0001));
 
-	    self.energy = Math.min(1, self.energy + (.0002 * deltaTime));
+	    self.energy = Math.min(1, self.energy + (self.energyRate * deltaTime));
 
 	    if (Math.abs(self.inputVector.x) > 0) {
-	        Body.rotate(self.getBody(), self.inputVector.x * .1000);
+	        Body.rotate(self.getBody(), self.inputVector.x * self.rotateRate);
 	        Body.setAngularVelocity(self.getBody(), 0);
 	    }
 
@@ -48602,6 +48624,14 @@
 	    } else {
 	        return this.rideEntity.body;
 	    }
+	};
+
+	Player.prototype.debug = function() {
+	    var self = this;
+	    Entity.prototype.debug.call(self);
+	    
+	    self.info.lineStyle(1, 0xff0000);
+	    self.info.drawCircle(self.getPosition().x, self.getPosition().y, self.getBody().circleRadius);
 	};
 
 	Player.prototype.initStateMachine = function(BaseFSM) {
@@ -48676,7 +48706,7 @@
 	};
 
 	Player.prototype.getThrustForce = function(vector) {
-	    return Vector.mult(vector, this.getBody().mass * .0001);
+	    return Vector.mult(vector, this.getBody().mass * this.launchModifier);
 	};
 
 	Player.prototype.move = function(vector) {
@@ -48723,6 +48753,8 @@
 
 	    this.stateMachine = null;
 
+	    this.info = new PIXI.Graphics();
+
 	    this.tags = [];
 	}
 
@@ -48739,6 +48771,7 @@
 	        self._bindListeners();
 
 	        stage.addChild(self.sprite);
+	        stage.addChild(self.info);
 
 	        self.body = Bodies.rectangle(
 	            0, 0, 64, 64
@@ -48771,6 +48804,10 @@
 
 	Entity.prototype.getBody = function() {
 	    return this.body;
+	};
+
+	Entity.prototype.debug = function() {
+	    this.info.clear();
 	};
 
 	// PRIVATE METHODS
@@ -61934,8 +61971,8 @@
 	    if (self.followTarget) {
 	        var targetPos = self.followTarget.getBody().position;
 	        var adjusted = {
-	            x: targetPos.x - (self.game.width / 2), 
-	            y: targetPos.y - (self.game.height / 2)
+	            x: targetPos.x - (self.game.screen_width / 2), 
+	            y: targetPos.y - (self.game.screen_height / 2)
 	        };
 	        self.offset = Vector.neg(adjusted);
 	    }
@@ -62059,15 +62096,19 @@
 	    self.energyBox = new PIXI.Graphics().lineStyle(1, 0xffffff);
 	    self.energyLevel = .5;
 
+	    self.debugText = new PIXI.Text('', {fontFamily : 'Arial', fontSize: 12, fill : 0xffffff, align : 'center'});
+	    
 	    self.container.addChild(self.launchLine);
 	    self.container.addChild(self.energyBox);
+	    self.container.addChild(self.debugText);
 
 	}
 
 	UI.prototype.update = function(deltaTime) {
 	    var self = this;
 
-	    var playerEnergy = self.game.player.energy;
+	    var player = self.game.player;
+	    var ui_rect = self.getUIRectangle();
 
 	    self.launchLine.clear();
 
@@ -62079,12 +62120,13 @@
 	        var launchVector = Vector.sub(worldPos, playerPos);
 	        var thrustForce = self.game.player.getThrustForce(launchVector);
 
-	        var color = Vector.magnitude(thrustForce) <= playerEnergy ? self.successColor : self.failureColor;
+	        var color = Vector.magnitude(thrustForce) <= player.energy ? self.successColor : self.failureColor;
 
 	        self.drawLaunchLine(playerPos, worldPos, color);
 	    }
 
-	    self.drawEnergyBox(playerEnergy);
+	    self.drawEnergyBox(ui_rect, player.energy);
+	    self.drawDebugText(ui_rect, player);
 
 	};
 
@@ -62098,11 +62140,10 @@
 	    self.launchLine.lineTo(end.x, end.y);
 	};
 
-	UI.prototype.drawEnergyBox = function(level) {
+	UI.prototype.drawEnergyBox = function(rect, level) {
 	    var self = this;
 
-	    var ui_rect = self.getUIRectangle();
-	    var boundingRect = new PIXI.Rectangle(ui_rect.x + ui_rect.width - 105, ui_rect.y + ui_rect.height - 20, 100, 15);
+	    var boundingRect = new PIXI.Rectangle(rect.x + rect.width - 105, rect.y + rect.height - 20, 100, 15);
 	    var energyRect = new PIXI.Rectangle(boundingRect.x, boundingRect.y, boundingRect.width * level, boundingRect.height);
 
 	    self.energyBox.clear();
@@ -62114,6 +62155,17 @@
 	    self.energyBox.drawShape(energyRect);
 	};
 
+	UI.prototype.drawDebugText = function(rect, player) {
+	    var self = this;
+
+	    self.debugText.position = {x: rect.x + rect.width - 200, y: rect.y + rect.height - 20};
+
+	    var playerPos = player.getPosition();
+	    var shortPos = {x: Math.floor(playerPos.x), y: Math.floor(playerPos.y) };
+
+	    self.debugText.text = "x: " + shortPos.x + ", y: " + shortPos.y;
+	};
+
 	UI.prototype.getUIRectangle = function() {
 	    var self = this;
 
@@ -62121,7 +62173,7 @@
 	    var screen_pos = {x: 0, y: 0}
 	    var world_pos = Vector.sub(screen_pos, stage_pos)
 
-	    return new PIXI.Rectangle(world_pos.x, world_pos.y, self.game.width, self.game.height);
+	    return new PIXI.Rectangle(world_pos.x, world_pos.y, self.game.screen_width, self.game.screen_height);
 	};
 
 	// PUBLIC
@@ -62144,11 +62196,14 @@
 
 	var Chunk   = __webpack_require__(226);
 
-	function ChunkManager(renderer, width, height) {
+	function ChunkManager(renderer, world_dimensions, chunk_dimensions) {
 	    this.renderer = renderer;
 
-	    this.width = width;
-	    this.height = height;
+	    this.chunk_width = chunk_dimensions.x;
+	    this.chunk_height = chunk_dimensions.y;
+
+	    this.width = (world_dimensions.x / this.chunk_width) / 2;
+	    this.height = (world_dimensions.y / this.chunk_height) / 2;
 
 	    this.chunks = {};
 
@@ -62166,7 +62221,7 @@
 
 	    for (var i = 0; i < num_chunks; i++) {
 	        for (var j = 0; j < num_chunks; j++) {
-	            var c = new Chunk(i, j, self.width, self.height);
+	            var c = new Chunk(i, j, self.chunk_width, self.chunk_height);
 	            var prom = c.generate(self.renderer);
 	            chunkPromises.push(prom);
 	        }
@@ -62174,8 +62229,8 @@
 
 	    return Promise.all(chunkPromises).then(function(chunks) {
 	        chunks.forEach(function(chunk, index) {
-	            var x = chunk.position.x / self.width;
-	            var y = chunk.position.y / self.height;
+	            var x = chunk.position.x / self.chunk_width;
+	            var y = chunk.position.y / self.chunk_height;
 
 	            self.chunks[x+"|"+y] = chunk;
 	            stage.addChild(chunk);
@@ -62189,11 +62244,15 @@
 	    var self = this;
 
 	    chunkIndexes.forEach(function(chunkIndex) {
-	        var c = new Chunk(chunkIndex.x, chunkIndex.y, self.width, self.height);
-	        c.generate(self.renderer).then(function(sprite) {
-	            self.chunks[chunkIndex.x+"|"+chunkIndex.y] = sprite
-	            self.stage.addChild(sprite);
-	        });
+	        // Check to see if requested chunk would be outside our world width and height
+	        if (Math.abs(chunkIndex.x) <= (self.width + 1) && Math.abs(chunkIndex.y) <= (self.height + 1)) {
+
+	            var c = new Chunk(chunkIndex.x, chunkIndex.y, self.chunk_width, self.chunk_height);
+	            c.generate(self.renderer).then(function(sprite) {
+	                self.chunks[chunkIndex.x+"|"+chunkIndex.y] = sprite
+	                self.stage.addChild(sprite);
+	            });
+	        }
 	    });
 	}
 
@@ -62216,8 +62275,8 @@
 
 	    var output = null;
 	    
-	    var x = Math.floor(point.x / self.width);
-	    var y = Math.floor(point.y / self.height);
+	    var x = Math.floor(point.x / self.chunk_width);
+	    var y = Math.floor(point.y / self.chunk_height);
 
 	    var chunk = self.chunks[x+"|"+y];
 	    if (chunk && self.chunkContainsPoint(chunk, point)) {
@@ -62363,7 +62422,7 @@
 	            self.x * self.width, 
 	            self.y * self.height
 	        );
-	        console.log(output.width + ", " + output.height);
+	        
 	        resolve(output);
 	    });
 	}
@@ -62401,8 +62460,9 @@
 	var Whale   = __webpack_require__(228);
 
 
-	function WhaleManager(physicsWorld) {
-	    this.world = physicsWorld;
+	function WhaleManager(game) {
+	    this.game = game;
+	    this.world = game.world;
 	    this.entities = [];
 	    this.stage = null;
 	}
@@ -62416,8 +62476,8 @@
 	    var whalePromises = [];
 
 	    for (var i = 0; i < num_whales; i++) {
-	        var randx = Math.random() * stage.width;
-	        var randy = Math.random() * stage.height;
+	        var randx = Math.random() * self.game.world_width;
+	        var randy = Math.random() * self.game.world_height;
 
 	        var whale = new Whale({x: randx, y: randy});
 	        var whaleProm = whale.init(stage).then(function(new_whale) {
@@ -62740,6 +62800,98 @@
 /* 230 */
 /***/ function(module, exports, __webpack_require__) {
 
+	var PIXI    = __webpack_require__(1),
+	    machina = __webpack_require__(219),
+	    World   = __webpack_require__(186).World,
+	    Comp    = __webpack_require__(186).Composite,
+	    Vector  = __webpack_require__(186).Vector,
+	    Body    = __webpack_require__(186).Body;
+
+	var Planet   = __webpack_require__(231);
+
+
+	function PlanetManager(game) {
+	    this.game = game;
+	    this.world = game.world;
+	    this.entities = [];
+	    this.stage = null;
+	}
+
+	// OVERRIDES
+
+	PlanetManager.prototype.init = function(stage, num_planets) {
+	    var self = this;
+
+	    self.stage = stage;
+	    var planetPromises = [];
+
+	    for (var i = 0; i < num_planets; i++) {
+	        var randx = Math.floor((Math.random() * 20000) - 10000);
+	        var randy = Math.floor((Math.random() * 20000) - 10000);
+	        if (i == 0) {
+	            randx = 2000;
+	            randy = 2000;
+	        }
+
+	        var planet = new Planet({x: randx, y: randy});
+	        var planetProm = planet.init(stage).then(function(new_planet) {
+	            self.entities.push(new_planet);
+	            World.addBody(self.world, new_planet.body);
+
+	            return new_planet;
+	        });
+	        planetPromises.push(planetProm);
+	    }
+
+	    return Promise.all(planetPromises);
+	}
+
+
+	PlanetManager.prototype.update = function(deltaTime) {
+	    var self = this;
+
+	    self.entities.forEach(function(planet) {
+	        planet.update(deltaTime);
+	    });
+	}
+
+	PlanetManager.prototype.debug = function() {
+	    var self = this;
+
+	    self.entities.forEach(function(planet) {
+	        planet.debug();
+	    });
+	};
+
+	// PUBLIC
+
+	PlanetManager.prototype.nearestPlanet = function(point) {
+	    var self = this;
+
+	    var nearest = null;
+	    var minLength = Infinity;
+
+	    self.entities.forEach(function(planet) {
+	        var vecToPlanet = Vector.sub(point, planet.body.position);
+	        var length = Vector.magnitude(vecToPlanet);
+
+	        if (length < minLength) {
+	            minLength = length;
+	            nearest = planet;
+	        }
+	    });
+
+	    return nearest;
+	};
+
+
+
+	module.exports = PlanetManager;
+
+/***/ },
+/* 231 */
+/***/ function(module, exports, __webpack_require__) {
+
 	var Entity  = __webpack_require__(218),
 	    PIXI    = __webpack_require__(1),
 	    machina = __webpack_require__(219);
@@ -62749,20 +62901,10 @@
 	    Vector  = __webpack_require__(186).Vector;
 
 
-	// var PlanetStateMachine = machina.Fsm.extend( {
-	//     initialState: "init",
-	//     states: {
-	//         init : {
-	//             _onEnter : function() {
-	//                 console.log("fsm init");
-	//             }
-	//         }
-	//     }
-	// });
-
-	function Planet() {
+	function Planet(position) {
 	    Entity.call(this);
 
+	    this.startPos = position;
 	    this.body = null;
 
 	    this.tags.push("planet");
@@ -62773,13 +62915,13 @@
 
 	// PUBLIC METHODS
 
-	Planet.prototype.init = function(stage, image_path) {
+	Planet.prototype.init = function(stage) {
 	    var self = this;
 
 	    return Entity.prototype.init.call(this, stage, "../images/mars.png")
 	    .then(function() {
 	        self.body = Bodies.circle(
-	            0, 0, 100
+	            self.startPos.x, self.startPos.y, 128
 	        );
 
 	        Body.setStatic(self.body, true);
@@ -62793,6 +62935,14 @@
 	    var self = this;
 
 	    Entity.prototype.update.call(self, deltaTime);
+	};
+
+	Planet.prototype.debug = function() {
+	    var self = this;
+	    Entity.prototype.debug.call(self);
+
+	    self.info.lineStyle(1, 0xff0000);
+	    self.info.drawCircle(self.getPosition().x, self.getPosition().y, self.getBody().circleRadius);
 	};
 
 

@@ -1,4 +1,4 @@
-var Entity  = require("./entity.js"),
+var Entity  = require("../entity.js"),
     PIXI    = require('pixi.js'),
     machina = require('machina');
 
@@ -7,20 +7,10 @@ var Bodies  = require('matter-js').Bodies,
     Vector  = require('matter-js').Vector;
 
 
-// var PlanetStateMachine = machina.Fsm.extend( {
-//     initialState: "init",
-//     states: {
-//         init : {
-//             _onEnter : function() {
-//                 console.log("fsm init");
-//             }
-//         }
-//     }
-// });
-
-function Planet() {
+function Planet(position) {
     Entity.call(this);
 
+    this.startPos = position;
     this.body = null;
 
     this.tags.push("planet");
@@ -31,13 +21,13 @@ Planet.prototype.constructor = Planet;
 
 // PUBLIC METHODS
 
-Planet.prototype.init = function(stage, image_path) {
+Planet.prototype.init = function(stage) {
     var self = this;
 
     return Entity.prototype.init.call(this, stage, "../images/mars.png")
     .then(function() {
         self.body = Bodies.circle(
-            0, 0, 100
+            self.startPos.x, self.startPos.y, 128
         );
 
         Body.setStatic(self.body, true);
@@ -51,6 +41,14 @@ Planet.prototype.update = function(deltaTime) {
     var self = this;
 
     Entity.prototype.update.call(self, deltaTime);
+};
+
+Planet.prototype.debug = function() {
+    var self = this;
+    Entity.prototype.debug.call(self);
+
+    self.info.lineStyle(1, 0xff0000);
+    self.info.drawCircle(self.getPosition().x, self.getPosition().y, self.getBody().circleRadius);
 };
 
 

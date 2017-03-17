@@ -22,6 +22,8 @@ function Entity() {
 
     this.stateMachine = null;
 
+    this.info = new PIXI.Graphics();
+
     this.tags = [];
 }
 
@@ -38,6 +40,7 @@ Entity.prototype.init = function(stage, image_path) {
         self._bindListeners();
 
         stage.addChild(self.sprite);
+        stage.addChild(self.info);
 
         self.body = Bodies.rectangle(
             0, 0, 64, 64
@@ -70,6 +73,10 @@ Entity.prototype.getFacingVector = function() {
 
 Entity.prototype.getBody = function() {
     return this.body;
+};
+
+Entity.prototype.debug = function() {
+    this.info.clear();
 };
 
 // PRIVATE METHODS

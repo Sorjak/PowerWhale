@@ -11,17 +11,23 @@ var Body    = require('matter-js').Body,
 function Player() {
     Entity.call(this);
 
+    this.info = new PIXI.Graphics();
+
     this.body = null;
     this.backupBody = null;
 
     this.inputVector = {x: 0, y: 0};
+    this.rotateRate = .1;
+
     this.launchOrigin = null;
+    this.launchModifier = .0001;
 
     this.rideEntity = null;
     this.charging = false;
     this.wasCharging = false;
 
-    this.energy = 1;
+    this.energy = 0;
+    this.energyRate = .0002;
 
     this.tags.push("player");
 }
@@ -39,17 +45,13 @@ Player.prototype.init = function(stage) {
         // Body.translate(self.body, {x: stage.width / 2, y: stage.height / 2});
 
         self.body = Bodies.circle(
-            0, 0, 32
+            0, 0, 24
         );
 
-        self.body.frictionAir = 0;
+        self.body.frictionAir = .000000001;
 
-        // self.info = new PIXI.Graphics();
-        self.debugText = new PIXI.Text('',{fontFamily : 'Arial', fontSize: 12, fill : 0xffffff, align : 'center'});
-        self.debugText.position = new PIXI.Point(20, 10);
-        // stage.addChild(self.info);
-
-        self.sprite.addChild(self.debugText);
+        
+        stage.addChild(self.info);
         
     });
 };
@@ -57,16 +59,14 @@ Player.prototype.init = function(stage) {
 Player.prototype.update = function(deltaTime) {
     var self = this;
 
-    self.debugText.text = self.stateMachine.state;
-
     // var thrustPoint = Vector.add(self.getBody().position, Vector.neg(self.inputVector));
 
     // Body.applyForce(self.getBody(), thrustPoint, Vector.mult(self.inputVector, self.getBody().mass * .0001));
 
-    self.energy = Math.min(1, self.energy + (.0002 * deltaTime));
+    self.energy = Math.min(1, self.energy + (self.energyRate * deltaTime));
 
     if (Math.abs(self.inputVector.x) > 0) {
-        Body.rotate(self.getBody(), self.inputVector.x * .1000);
+        Body.rotate(self.getBody(), self.inputVector.x * self.rotateRate);
         Body.setAngularVelocity(self.getBody(), 0);
     }
 
@@ -91,6 +91,14 @@ Player.prototype.getBody = function() {
     } else {
         return this.rideEntity.body;
     }
+};
+
+Player.prototype.debug = function() {
+    var self = this;
+    Entity.prototype.debug.call(self);
+    
+    self.info.lineStyle(1, 0xff0000);
+    self.info.drawCircle(self.getPosition().x, self.getPosition().y, self.getBody().circleRadius);
 };
 
 Player.prototype.initStateMachine = function(BaseFSM) {
@@ -165,7 +173,7 @@ Player.prototype.launch = function(point) {
 };
 
 Player.prototype.getThrustForce = function(vector) {
-    return Vector.mult(vector, this.getBody().mass * .0001);
+    return Vector.mult(vector, this.getBody().mass * this.launchModifier);
 };
 
 Player.prototype.move = function(vector) {

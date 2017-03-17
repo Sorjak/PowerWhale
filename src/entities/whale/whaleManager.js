@@ -7,8 +7,9 @@ var PIXI    = require('pixi.js'),
 var Whale   = require('./whale.js');
 
 
-function WhaleManager(physicsWorld) {
-    this.world = physicsWorld;
+function WhaleManager(game) {
+    this.game = game;
+    this.world = game.world;
     this.entities = [];
     this.stage = null;
 }
@@ -22,8 +23,8 @@ WhaleManager.prototype.init = function(stage, num_whales) {
     var whalePromises = [];
 
     for (var i = 0; i < num_whales; i++) {
-        var randx = Math.random() * stage.width;
-        var randy = Math.random() * stage.height;
+        var randx = Math.random() * self.game.world_width;
+        var randy = Math.random() * self.game.world_height;
 
         var whale = new Whale({x: randx, y: randy});
         var whaleProm = whale.init(stage).then(function(new_whale) {

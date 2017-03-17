@@ -2,11 +2,14 @@ var PIXI    = require('pixi.js');
 
 var Chunk   = require('./chunk.js');
 
-function ChunkManager(renderer, width, height) {
+function ChunkManager(renderer, world_dimensions, chunk_dimensions) {
     this.renderer = renderer;
 
-    this.width = width;
-    this.height = height;
+    this.chunk_width = chunk_dimensions.x;
+    this.chunk_height = chunk_dimensions.y;
+
+    this.width = (world_dimensions.x / this.chunk_width) / 2;
+    this.height = (world_dimensions.y / this.chunk_height) / 2;
 
     this.chunks = {};
 
@@ -24,7 +27,7 @@ ChunkManager.prototype.init = function(stage, num_chunks) {
 
     for (var i = 0; i < num_chunks; i++) {
         for (var j = 0; j < num_chunks; j++) {
-            var c = new Chunk(i, j, self.width, self.height);
+            var c = new Chunk(i, j, self.chunk_width, self.chunk_height);
             var prom = c.generate(self.renderer);
             chunkPromises.push(prom);
         }
@@ -32,8 +35,8 @@ ChunkManager.prototype.init = function(stage, num_chunks) {
 
     return Promise.all(chunkPromises).then(function(chunks) {
         chunks.forEach(function(chunk, index) {
-            var x = chunk.position.x / self.width;
-            var y = chunk.position.y / self.height;
+            var x = chunk.position.x / self.chunk_width;
+            var y = chunk.position.y / self.chunk_height;
 
             self.chunks[x+"|"+y] = chunk;
             stage.addChild(chunk);
@@ -47,11 +50,15 @@ ChunkManager.prototype.generateChunks = function(chunkIndexes) {
     var self = this;
 
     chunkIndexes.forEach(function(chunkIndex) {
-        var c = new Chunk(chunkIndex.x, chunkIndex.y, self.width, self.height);
-        c.generate(self.renderer).then(function(sprite) {
-            self.chunks[chunkIndex.x+"|"+chunkIndex.y] = sprite
-            self.stage.addChild(sprite);
-        });
+        // Check to see if requested chunk would be outside our world width and height
+        if (Math.abs(chunkIndex.x) <= (self.width + 1) && Math.abs(chunkIndex.y) <= (self.height + 1)) {
+
+            var c = new Chunk(chunkIndex.x, chunkIndex.y, self.chunk_width, self.chunk_height);
+            c.generate(self.renderer).then(function(sprite) {
+                self.chunks[chunkIndex.x+"|"+chunkIndex.y] = sprite
+                self.stage.addChild(sprite);
+            });
+        }
     });
 }
 
@@ -74,8 +81,8 @@ ChunkManager.prototype.getChunkFromPoint = function(point) {
 
     var output = null;
     
-    var x = Math.floor(point.x / self.width);
-    var y = Math.floor(point.y / self.height);
+    var x = Math.floor(point.x / self.chunk_width);
+    var y = Math.floor(point.y / self.chunk_height);
 
     var chunk = self.chunks[x+"|"+y];
     if (chunk && self.chunkContainsPoint(chunk, point)) {

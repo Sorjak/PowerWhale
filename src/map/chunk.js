@@ -33,7 +33,7 @@ Chunk.prototype.generate = function(renderer) {
             self.x * self.width, 
             self.y * self.height
         );
-        console.log(output.width + ", " + output.height);
+        
         resolve(output);
     });
 }
