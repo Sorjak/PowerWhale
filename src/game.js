@@ -6,7 +6,8 @@ var Player  = require("./entities/player/player.js"),
     Input   = require('./input.js'),
     UI      = require('./ui.js'),
     ChunkManager    = require('./map/chunkManager.js'),
-    WhaleManager    = require('./entities/whale/whaleManager.js');
+    WhaleManager    = require('./entities/whale/whaleManager.js'),
+    Planet  = require("./entities/planet.js");
 
 function Game(renderer, world, width, height) {
     this.camera = null;
@@ -34,7 +35,7 @@ function Game(renderer, world, width, height) {
 Game.prototype.start = function() {
     var self = this;
 
-    self.world.gravity.y = 0;
+    self.setWorldOptions();
 
     self.stage = new PIXI.Container();
     self.stage.interactive = true;
@@ -53,25 +54,42 @@ Game.prototype.start = function() {
     self.input = new Input(self);
     self.ui = new UI(self);
 
+    // Create world and spawn entities
+
     return self.chunkManager.init(background, self.initChunks)
         .then(function(chunkMap) {
 
         self.targetPoint = new PIXI.Graphics();
         self.stage.addChild(self.targetPoint);
 
+        self.planet = new Planet();
+        var planetProm = self.planet.init(first_layer).then(function() {
+            
+            Body.translate(self.planet.body, 
+                {x: (self.stage.width / 2), y:(self.stage.height/2)}
+            );
+            console.log(self.planet.body);
+            World.addBody(self.world, self.planet.body);
+        });
+
         var whaleProm = self.whaleManager.init(first_layer, 10);
 
         self.player = new Player();
         var playerProm = self.player.init(first_layer).then(function() {
             Body.translate(self.player.body, 
-                {x: (self.stage.width / 2), y:(self.stage.height/2)}
+                {x: (self.stage.width / 2) - 200, y:(self.stage.height/2)}
             );
             World.addBody(self.world, self.player.body);
             self.camera.followEntity(self.player);
         });
 
-        return Promise.all([whaleProm, playerProm]);
+        return Promise.all([whaleProm, playerProm, planetProm]);
     });
+};
+
+Game.prototype.setWorldOptions = function() {
+    this.world.gravity.y = 0;
+
 };
 
 Game.prototype.handleInput = function() {
@@ -98,6 +116,7 @@ Game.prototype.handleInput = function() {
 Game.prototype.update = function(deltaTime) {
     this.handleInput();
 
+    this.planet.update(deltaTime);
     this.player.update(deltaTime);
 
     this.chunkManager.update(deltaTime, this.player);

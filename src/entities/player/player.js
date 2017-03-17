@@ -42,6 +42,8 @@ Player.prototype.init = function(stage) {
             0, 0, 32
         );
 
+        self.body.frictionAir = 0;
+
         // self.info = new PIXI.Graphics();
         self.debugText = new PIXI.Text('',{fontFamily : 'Arial', fontSize: 12, fill : 0xffffff, align : 'center'});
         self.debugText.position = new PIXI.Point(20, 10);
@@ -63,7 +65,10 @@ Player.prototype.update = function(deltaTime) {
 
     self.energy = Math.min(1, self.energy + (.0002 * deltaTime));
 
-    Body.rotate(self.getBody(), self.inputVector.x * .1000);
+    if (Math.abs(self.inputVector.x) > 0) {
+        Body.rotate(self.getBody(), self.inputVector.x * .1000);
+        Body.setAngularVelocity(self.getBody(), 0);
+    }
 
     Entity.prototype.update.call(self, deltaTime);
 };

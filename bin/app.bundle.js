@@ -48344,7 +48344,8 @@
 	    Input   = __webpack_require__(223),
 	    UI      = __webpack_require__(224),
 	    ChunkManager    = __webpack_require__(225),
-	    WhaleManager    = __webpack_require__(227);
+	    WhaleManager    = __webpack_require__(227),
+	    Planet  = __webpack_require__(230);
 
 	function Game(renderer, world, width, height) {
 	    this.camera = null;
@@ -48372,7 +48373,7 @@
 	Game.prototype.start = function() {
 	    var self = this;
 
-	    self.world.gravity.y = 0;
+	    self.setWorldOptions();
 
 	    self.stage = new PIXI.Container();
 	    self.stage.interactive = true;
@@ -48391,25 +48392,42 @@
 	    self.input = new Input(self);
 	    self.ui = new UI(self);
 
+	    // Create world and spawn entities
+
 	    return self.chunkManager.init(background, self.initChunks)
 	        .then(function(chunkMap) {
 
 	        self.targetPoint = new PIXI.Graphics();
 	        self.stage.addChild(self.targetPoint);
 
+	        self.planet = new Planet();
+	        var planetProm = self.planet.init(first_layer).then(function() {
+	            
+	            Body.translate(self.planet.body, 
+	                {x: (self.stage.width / 2), y:(self.stage.height/2)}
+	            );
+	            console.log(self.planet.body);
+	            World.addBody(self.world, self.planet.body);
+	        });
+
 	        var whaleProm = self.whaleManager.init(first_layer, 10);
 
 	        self.player = new Player();
 	        var playerProm = self.player.init(first_layer).then(function() {
 	            Body.translate(self.player.body, 
-	                {x: (self.stage.width / 2), y:(self.stage.height/2)}
+	                {x: (self.stage.width / 2) - 200, y:(self.stage.height/2)}
 	            );
 	            World.addBody(self.world, self.player.body);
 	            self.camera.followEntity(self.player);
 	        });
 
-	        return Promise.all([whaleProm, playerProm]);
+	        return Promise.all([whaleProm, playerProm, planetProm]);
 	    });
+	};
+
+	Game.prototype.setWorldOptions = function() {
+	    this.world.gravity.y = 0;
+
 	};
 
 	Game.prototype.handleInput = function() {
@@ -48436,6 +48454,7 @@
 	Game.prototype.update = function(deltaTime) {
 	    this.handleInput();
 
+	    this.planet.update(deltaTime);
 	    this.player.update(deltaTime);
 
 	    this.chunkManager.update(deltaTime, this.player);
@@ -48534,6 +48553,8 @@
 	            0, 0, 32
 	        );
 
+	        self.body.frictionAir = 0;
+
 	        // self.info = new PIXI.Graphics();
 	        self.debugText = new PIXI.Text('',{fontFamily : 'Arial', fontSize: 12, fill : 0xffffff, align : 'center'});
 	        self.debugText.position = new PIXI.Point(20, 10);
@@ -48555,7 +48576,10 @@
 
 	    self.energy = Math.min(1, self.energy + (.0002 * deltaTime));
 
-	    Body.rotate(self.getBody(), self.inputVector.x * .1000);
+	    if (Math.abs(self.inputVector.x) > 0) {
+	        Body.rotate(self.getBody(), self.inputVector.x * .1000);
+	        Body.setAngularVelocity(self.getBody(), 0);
+	    }
 
 	    Entity.prototype.update.call(self, deltaTime);
 	};
@@ -62519,8 +62543,6 @@
 	        aiState : self.aiState.state,
 	        moveState : self.moveState.state
 	    }
-	    console.log(info);
-
 
 	    EntityAI.prototype.onDown.call(self, event);
 	};
@@ -62713,6 +62735,68 @@
 	    this.aiState.release();
 	};
 	module.exports = EntityAI;
+
+/***/ },
+/* 230 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var Entity  = __webpack_require__(218),
+	    PIXI    = __webpack_require__(1),
+	    machina = __webpack_require__(219);
+
+	var Bodies  = __webpack_require__(186).Bodies,
+	    Body    = __webpack_require__(186).Body
+	    Vector  = __webpack_require__(186).Vector;
+
+
+	// var PlanetStateMachine = machina.Fsm.extend( {
+	//     initialState: "init",
+	//     states: {
+	//         init : {
+	//             _onEnter : function() {
+	//                 console.log("fsm init");
+	//             }
+	//         }
+	//     }
+	// });
+
+	function Planet() {
+	    Entity.call(this);
+
+	    this.body = null;
+
+	    this.tags.push("planet");
+	}
+
+	Planet.prototype = Object.create(Entity.prototype);
+	Planet.prototype.constructor = Planet;
+
+	// PUBLIC METHODS
+
+	Planet.prototype.init = function(stage, image_path) {
+	    var self = this;
+
+	    return Entity.prototype.init.call(this, stage, "../images/mars.png")
+	    .then(function() {
+	        self.body = Bodies.circle(
+	            0, 0, 100
+	        );
+
+	        Body.setStatic(self.body, true);
+
+	        return self;
+
+	    });
+	};
+
+	Planet.prototype.update = function(deltaTime) {
+	    var self = this;
+
+	    Entity.prototype.update.call(self, deltaTime);
+	};
+
+
+	module.exports = Planet;
 
 /***/ }
 /******/ ]);

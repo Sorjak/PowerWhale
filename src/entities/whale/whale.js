@@ -72,8 +72,6 @@ Whale.prototype.onDown = function(event) {
         aiState : self.aiState.state,
         moveState : self.moveState.state
     }
-    console.log(info);
-
 
     EntityAI.prototype.onDown.call(self, event);
 };
