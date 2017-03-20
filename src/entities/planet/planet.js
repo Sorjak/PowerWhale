@@ -26,9 +26,18 @@ Planet.prototype.init = function(stage) {
 
     return Entity.prototype.init.call(this, stage, "../images/mars.png")
     .then(function() {
-        self.body = Bodies.circle(
-            self.startPos.x, self.startPos.y, 128
-        );
+        self.body = Bodies.circle( self.startPos.x, self.startPos.y, 128, {
+            plugin: {
+                attractors: [
+                    function(bodyA, bodyB) {
+                        return {
+                            x: (bodyA.position.x - bodyB.position.x) * 1e-9,
+                            y: (bodyA.position.y - bodyB.position.y) * 1e-9,
+                        };
+                    }
+                ]
+            }
+        });
 
         Body.setStatic(self.body, true);
 

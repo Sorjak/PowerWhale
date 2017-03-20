@@ -1,5 +1,7 @@
 var PIXI = require('pixi.js'),
-    Engine = require("matter-js").Engine;
+    Matter = require("matter-js"),
+    MatterAttractors = require('matter-attractors');
+    
 
 var Game = require('./game.js');
 
@@ -14,7 +16,9 @@ var rendererOptions = {
 };
 var RENDERER = new PIXI.autoDetectRenderer(GAME_WIDTH, GAME_HEIGHT, rendererOptions);
 
-var engine = Engine.create($("#pixi-canvas"));
+Matter.use(MatterAttractors);
+
+var engine = Matter.Engine.create($("#pixi-canvas"));
 
 $("#pixi-canvas").append(RENDERER.view);
 
@@ -30,6 +34,6 @@ var mainLoop = function() {
 }
 
 game.start().then(function() {
-    Engine.run(engine);
+    Matter.Engine.run(engine);
     mainLoop();
 });

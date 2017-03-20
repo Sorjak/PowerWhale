@@ -1,5 +1,5 @@
-var path = require('path')
-var webpack = require('webpack')
+var path = require('path');
+var webpack = require('webpack');
 
 // I'm running a very basic command to convert app.js => bundle.js. It looks like:
 //
@@ -15,6 +15,7 @@ module.exports = {
 
   include: [
     path.resolve(__dirname, 'node_modules/matter-js'),
+    path.resolve(__dirname, 'node_modules/matter-attractors'),
     path.resolve(__dirname, 'node_modules/machina')
   ],
 
