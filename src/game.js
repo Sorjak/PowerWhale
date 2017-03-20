@@ -71,7 +71,7 @@ Game.prototype.start = function() {
 
         var planetProm = self.planetManager.init(first_layer, 3);
 
-        var whaleProm = self.whaleManager.init(first_layer, 10);
+        // var whaleProm = self.whaleManager.init(first_layer, 10);
 
         self.player = new Player();
         var playerProm = self.player.init(first_layer).then(function() {
@@ -82,7 +82,8 @@ Game.prototype.start = function() {
             self.camera.followEntity(self.player);
         });
 
-        return Promise.all([whaleProm, playerProm, planetProm]);
+        // return Promise.all([whaleProm, playerProm, planetProm]);
+        return Promise.all([playerProm, planetProm]);
     });
 };
 
@@ -131,7 +132,7 @@ Game.prototype.update = function(deltaTime) {
 
     this.chunkManager.update(deltaTime, this.player);
     this.planetManager.update(deltaTime);
-    this.whaleManager.update(deltaTime);
+    // this.whaleManager.update(deltaTime);
 
     this.camera.update(deltaTime);
     this.ui.update(deltaTime);

@@ -27,7 +27,9 @@ Planet.prototype.init = function(stage) {
 
     return Entity.prototype.init.call(this, stage, "../images/mars.png")
     .then(function() {
-        self.body = Bodies.circle( self.startPos.x, self.startPos.y, 128, {
+        
+        var planetRadius = self.sprite.width / 2;
+        self.body = Bodies.circle( self.startPos.x, self.startPos.y, planetRadius, {
             plugin: {
                 attractors: [self.getGravity]
             }
@@ -35,10 +37,7 @@ Planet.prototype.init = function(stage) {
 
         Body.setStatic(self.body, true);
 
-        console.log(self.body.id);
-
         return self;
-
     });
 };
 
@@ -71,7 +70,6 @@ Planet.prototype.getGravity = function(planet, other) {
             ((distance - planet.circleRadius - 10) / 1500)
         );
 
-        console.log(intensity.y * 1e-3);
         var normalized = Vector.normalise(towardPlanet);
         return Vector.mult(normalized, intensity.y * 1e-3);
     }

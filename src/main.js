@@ -33,7 +33,19 @@ var mainLoop = function() {
     RENDERER.render(game.stage);
 }
 
-game.start().then(function() {
-    Matter.Engine.run(engine);
-    mainLoop();
+// create a new loader
+const loader = new PIXI.loaders.Loader("../images/");
+
+loader.add("astronaut", "astronaut-white.png")
+      .add("whale", "whale_blue.png")
+      .add("mars", "mars.png");
+
+loader.load((loader, resources) => {
+
+    game.start().then(function() {
+        Matter.Engine.run(engine);
+        mainLoop();
+    });
 });
+
+

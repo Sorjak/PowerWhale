@@ -79,10 +79,22 @@
 	    RENDERER.render(game.stage);
 	}
 
-	game.start().then(function() {
-	    Matter.Engine.run(engine);
-	    mainLoop();
+	// create a new loader
+	const loader = new PIXI.loaders.Loader("../images/");
+
+	loader.add("astronaut", "astronaut-white.png")
+	      .add("whale", "whale_blue.png")
+	      .add("mars", "mars.png");
+
+	loader.load((loader, resources) => {
+
+	    game.start().then(function() {
+	        Matter.Engine.run(engine);
+	        mainLoop();
+	    });
 	});
+
+
 
 
 /***/ },
@@ -49330,7 +49342,7 @@
 
 	        var planetProm = self.planetManager.init(first_layer, 3);
 
-	        var whaleProm = self.whaleManager.init(first_layer, 10);
+	        // var whaleProm = self.whaleManager.init(first_layer, 10);
 
 	        self.player = new Player();
 	        var playerProm = self.player.init(first_layer).then(function() {
@@ -49341,7 +49353,8 @@
 	            self.camera.followEntity(self.player);
 	        });
 
-	        return Promise.all([whaleProm, playerProm, planetProm]);
+	        // return Promise.all([whaleProm, playerProm, planetProm]);
+	        return Promise.all([playerProm, planetProm]);
 	    });
 	};
 
@@ -49390,7 +49403,7 @@
 
 	    this.chunkManager.update(deltaTime, this.player);
 	    this.planetManager.update(deltaTime);
-	    this.whaleManager.update(deltaTime);
+	    // this.whaleManager.update(deltaTime);
 
 	    this.camera.update(deltaTime);
 	    this.ui.update(deltaTime);
@@ -49688,6 +49701,7 @@
 	        self.sprite = new PIXI.Sprite.fromImage(image_path);
 	        self.sprite.anchor = new PIXI.Point(.5, .5);
 	        self.sprite.interactive = true;
+
 
 	        self._bindListeners();
 
@@ -63856,7 +63870,9 @@
 
 	    return Entity.prototype.init.call(this, stage, "../images/mars.png")
 	    .then(function() {
-	        self.body = Bodies.circle( self.startPos.x, self.startPos.y, 128, {
+	        
+	        var planetRadius = self.sprite.width / 2;
+	        self.body = Bodies.circle( self.startPos.x, self.startPos.y, planetRadius, {
 	            plugin: {
 	                attractors: [self.getGravity]
 	            }
@@ -63864,10 +63880,7 @@
 
 	        Body.setStatic(self.body, true);
 
-	        console.log(self.body.id);
-
 	        return self;
-
 	    });
 	};
 
@@ -63900,7 +63913,6 @@
 	            ((distance - planet.circleRadius - 10) / 1500)
 	        );
 
-	        console.log(intensity.y * 1e-3);
 	        var normalized = Vector.normalise(towardPlanet);
 	        return Vector.mult(normalized, intensity.y * 1e-3);
 	    }
