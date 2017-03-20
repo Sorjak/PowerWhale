@@ -1,4 +1,5 @@
 var Entity  = require("../entity.js"),
+    Utils   = require("../../util.js"),
     PIXI    = require('pixi.js'),
     machina = require('machina');
 
@@ -28,18 +29,13 @@ Planet.prototype.init = function(stage) {
     .then(function() {
         self.body = Bodies.circle( self.startPos.x, self.startPos.y, 128, {
             plugin: {
-                attractors: [
-                    function(bodyA, bodyB) {
-                        return {
-                            x: (bodyA.position.x - bodyB.position.x) * 1e-9,
-                            y: (bodyA.position.y - bodyB.position.y) * 1e-9,
-                        };
-                    }
-                ]
+                attractors: [self.getGravity]
             }
         });
 
         Body.setStatic(self.body, true);
+
+        console.log(self.body.id);
 
         return self;
 
@@ -59,6 +55,29 @@ Planet.prototype.debug = function() {
     self.info.lineStyle(1, 0xff0000);
     self.info.drawCircle(self.getPosition().x, self.getPosition().y, self.getBody().circleRadius);
 };
+
+
+Planet.prototype.getGravity = function(planet, other) {
+    
+    var towardPlanet = Vector.sub(planet.position, other.position);
+    var distance = Vector.magnitude(towardPlanet);
+
+    if (distance <= 1500) {
+        var intensity = Utils.bezierCube(
+            {x: 0, y:1},
+            {x: 0, y:0},
+            {x: 0, y:0},
+            {x: 1, y:0},
+            ((distance - planet.circleRadius - 10) / 1500)
+        );
+
+        console.log(intensity.y * 1e-3);
+        var normalized = Vector.normalise(towardPlanet);
+        return Vector.mult(normalized, intensity.y * 1e-3);
+    }
+
+    return {x: 0, y: 0};
+}
 
 
 module.exports = Planet;

@@ -69,7 +69,7 @@ Game.prototype.start = function() {
         self.targetPoint = new PIXI.Graphics();
         self.stage.addChild(self.targetPoint);
 
-        var planetProm = self.planetManager.init(first_layer, 5);
+        var planetProm = self.planetManager.init(first_layer, 3);
 
         var whaleProm = self.whaleManager.init(first_layer, 10);
 

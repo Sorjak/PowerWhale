@@ -49328,7 +49328,7 @@
 	        self.targetPoint = new PIXI.Graphics();
 	        self.stage.addChild(self.targetPoint);
 
-	        var planetProm = self.planetManager.init(first_layer, 5);
+	        var planetProm = self.planetManager.init(first_layer, 3);
 
 	        var whaleProm = self.whaleManager.init(first_layer, 10);
 
@@ -62862,7 +62862,21 @@
 	var Util = {
 		lerp : function(a, b, t) {
 			return a + t * (b - a);
-		}
+		},
+
+	    bezierQuad : function(p1, p2, p3, t) {
+	        x = (1 - t) * (1 - t) * p1.x + 2 * (1 - t) * t * p2.x + t * t * p3.x;
+	        y = (1 - t) * (1 - t) * p1.y + 2 * (1 - t) * t * p2.y + t * t * p3.y;
+
+	        return {x : x, y : y};
+	    },
+
+	    bezierCube : function(p1, p2, p3, p4, t) {
+	        x = (1-t)*(1-t)*(1-t)*p1.x + 3*(1-t)*(1-t)*t*p2.x + 3*(1-t)*t*t*p3.x + t*t*t*p4.x;
+	        y = (1-t)*(1-t)*(1-t)*p1.y + 3*(1-t)*(1-t)*t*p2.y + 3*(1-t)*t*t*p3.y + t*t*t*p4.y;
+
+	        return {x : x, y : y};
+	    }
 	}
 
 	module.exports = Util;
@@ -63814,6 +63828,7 @@
 /***/ function(module, exports, __webpack_require__) {
 
 	var Entity  = __webpack_require__(190),
+	    Utils   = __webpack_require__(193),
 	    PIXI    = __webpack_require__(1),
 	    machina = __webpack_require__(191);
 
@@ -63843,18 +63858,13 @@
 	    .then(function() {
 	        self.body = Bodies.circle( self.startPos.x, self.startPos.y, 128, {
 	            plugin: {
-	                attractors: [
-	                    function(bodyA, bodyB) {
-	                        return {
-	                            x: (bodyA.position.x - bodyB.position.x) * 1e-9,
-	                            y: (bodyA.position.y - bodyB.position.y) * 1e-9,
-	                        };
-	                    }
-	                ]
+	                attractors: [self.getGravity]
 	            }
 	        });
 
 	        Body.setStatic(self.body, true);
+
+	        console.log(self.body.id);
 
 	        return self;
 
@@ -63874,6 +63884,29 @@
 	    self.info.lineStyle(1, 0xff0000);
 	    self.info.drawCircle(self.getPosition().x, self.getPosition().y, self.getBody().circleRadius);
 	};
+
+
+	Planet.prototype.getGravity = function(planet, other) {
+	    
+	    var towardPlanet = Vector.sub(planet.position, other.position);
+	    var distance = Vector.magnitude(towardPlanet);
+
+	    if (distance <= 1500) {
+	        var intensity = Utils.bezierCube(
+	            {x: 0, y:1},
+	            {x: 0, y:0},
+	            {x: 0, y:0},
+	            {x: 1, y:0},
+	            ((distance - planet.circleRadius - 10) / 1500)
+	        );
+
+	        console.log(intensity.y * 1e-3);
+	        var normalized = Vector.normalise(towardPlanet);
+	        return Vector.mult(normalized, intensity.y * 1e-3);
+	    }
+
+	    return {x: 0, y: 0};
+	}
 
 
 	module.exports = Planet;
