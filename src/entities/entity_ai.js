@@ -23,6 +23,10 @@ EntityAI.prototype.update = function(deltaTime) {
     Entity.prototype.update.call(this, deltaTime);
 };
 
+EntityAI.prototype.debug = function() {
+    Entity.prototype.debug.call(this);
+};
+
 EntityAI.prototype.onDown = function(event) {
     Entity.prototype.onDown.call(this, event);
 };

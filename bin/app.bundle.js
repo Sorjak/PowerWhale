@@ -7310,7 +7310,7 @@
 /***/ function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/**
-	 * isMobile.js v0.4.0
+	 * isMobile.js v0.4.1
 	 *
 	 * A simple library to detect Apple phones and tablets,
 	 * Android phones and tablets, other mobile devices (like blackberry, mini-opera and windows phone),
@@ -7329,7 +7329,7 @@
 	        android_tablet      = /Android/i,
 	        amazon_phone        = /(?=.*\bAndroid\b)(?=.*\bSD4930UR\b)/i,
 	        amazon_tablet       = /(?=.*\bAndroid\b)(?=.*\b(?:KFOT|KFTT|KFJWI|KFJWA|KFSOWI|KFTHWI|KFTHWA|KFAPWI|KFAPWA|KFARWI|KFASWI|KFSAWI|KFSAWA)\b)/i,
-	        windows_phone       = /IEMobile/i,
+	        windows_phone       = /Windows Phone/i,
 	        windows_tablet      = /(?=.*\bWindows\b)(?=.*\bARM\b)/i, // Match 'Windows' AND 'ARM'
 	        other_blackberry    = /BlackBerry/i,
 	        other_blackberry_10 = /BB10/i,
@@ -49309,7 +49309,7 @@
 	    this.player = null;
 	    this.entities = [];
 
-	    this.debug = true;
+	    this.debug = false;
 
 	}
 
@@ -49411,6 +49411,7 @@
 	    if (this.debug) {
 	        this.player.debug();
 	        this.planetManager.debug();
+	        this.whaleManager.debug();
 	    }
 
 	};
@@ -63449,6 +63450,14 @@
 	    });
 	}
 
+	WhaleManager.prototype.debug = function() {
+	    var self = this;
+
+	    self.entities.forEach(function(whale) {
+	        whale.debug();
+	    });
+	};
+
 	// PUBLIC
 
 	WhaleManager.prototype.nearestWhale = function(point) {
@@ -63542,6 +63551,14 @@
 	    self.thrustPower = Math.min(1000, self.thrustPower);
 
 	    EntityAI.prototype.update.call(self, deltaTime);
+	};
+
+	Whale.prototype.debug = function() {
+	    var self = this;
+	    EntityAI.prototype.debug.call(self);
+
+	    self.info.lineStyle(1, 0xff0000);
+	    self.info.drawCircle(self.getPosition().x, self.getPosition().y, 32);
 	};
 
 	Whale.prototype.onDown = function(event) {
@@ -63688,6 +63705,10 @@
 
 	EntityAI.prototype.update = function(deltaTime) {
 	    Entity.prototype.update.call(this, deltaTime);
+	};
+
+	EntityAI.prototype.debug = function() {
+	    Entity.prototype.debug.call(this);
 	};
 
 	EntityAI.prototype.onDown = function(event) {
@@ -63871,12 +63892,15 @@
 	    return Entity.prototype.init.call(this, stage, "../images/mars.png")
 	    .then(function() {
 	        
+	        self.sprite.scale = new PIXI.Point(2, 2);
 	        var planetRadius = self.sprite.width / 2;
 	        self.body = Bodies.circle( self.startPos.x, self.startPos.y, planetRadius, {
 	            plugin: {
 	                attractors: [self.getGravity]
 	            }
 	        });
+
+	        console.log(self.startPos);
 
 	        Body.setStatic(self.body, true);
 

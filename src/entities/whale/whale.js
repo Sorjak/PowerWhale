@@ -64,6 +64,14 @@ Whale.prototype.update = function(deltaTime) {
     EntityAI.prototype.update.call(self, deltaTime);
 };
 
+Whale.prototype.debug = function() {
+    var self = this;
+    EntityAI.prototype.debug.call(self);
+
+    self.info.lineStyle(1, 0xff0000);
+    self.info.drawCircle(self.getPosition().x, self.getPosition().y, 32);
+};
+
 Whale.prototype.onDown = function(event) {
     var self = this;
 

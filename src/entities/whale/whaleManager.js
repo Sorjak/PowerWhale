@@ -47,6 +47,14 @@ WhaleManager.prototype.update = function(deltaTime) {
     });
 }
 
+WhaleManager.prototype.debug = function() {
+    var self = this;
+
+    self.entities.forEach(function(whale) {
+        whale.debug();
+    });
+};
+
 // PUBLIC
 
 WhaleManager.prototype.nearestWhale = function(point) {

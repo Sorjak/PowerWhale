@@ -28,12 +28,15 @@ Planet.prototype.init = function(stage) {
     return Entity.prototype.init.call(this, stage, "../images/mars.png")
     .then(function() {
         
+        self.sprite.scale = new PIXI.Point(2, 2);
         var planetRadius = self.sprite.width / 2;
         self.body = Bodies.circle( self.startPos.x, self.startPos.y, planetRadius, {
             plugin: {
                 attractors: [self.getGravity]
             }
         });
+
+        console.log(self.startPos);
 
         Body.setStatic(self.body, true);
 

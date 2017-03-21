@@ -38,7 +38,7 @@ function Game(renderer, world, width, height) {
     this.player = null;
     this.entities = [];
 
-    this.debug = true;
+    this.debug = false;
 
 }
 
@@ -140,6 +140,7 @@ Game.prototype.update = function(deltaTime) {
     if (this.debug) {
         this.player.debug();
         this.planetManager.debug();
+        this.whaleManager.debug();
     }
 
 };
