@@ -11,15 +11,15 @@ var Player  = require("./entities/player/player.js"),
     WhaleManager    = require('./entities/whale/whaleManager.js'),
     PlanetManager   = require("./entities/planet/planetManager.js");
 
-function Game(renderer, world, width, height) {
+function Game(renderer, world, screen_width, screen_height, world_width, world_height) {
     
     this.world = world;
 
-    this.screen_width = width;
-    this.screen_height = height;
+    this.screen_width = screen_width;
+    this.screen_height = screen_height;
 
-    this.world_width = 24000;
-    this.world_height = 24000;
+    this.world_width = world_width;
+    this.world_height = world_height;
 
     this.setWorldOptions();
 
@@ -29,7 +29,7 @@ function Game(renderer, world, width, height) {
 
     this.chunkManager = new ChunkManager(renderer, 
         {x: this.world_width, y: this.world_height},
-        {x: 800, y: 600}
+        {x: this.screen_width, y: this.screen_height}
     );
     this.whaleManager = new WhaleManager(this);
     this.planetManager = new PlanetManager(this);
@@ -140,7 +140,7 @@ Game.prototype.update = function(deltaTime) {
     if (this.debug) {
         this.player.debug();
         this.planetManager.debug();
-        this.whaleManager.debug();
+        // this.whaleManager.debug();
     }
 
 };

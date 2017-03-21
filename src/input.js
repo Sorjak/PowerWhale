@@ -1,8 +1,11 @@
+alphabet = "abcdefghijklmnopqrstuvwxyz";
+
 function Input(game) {
     this.game = game;
 
     this._bindListeners();
 
+    // heldKeys is a set of numeric keycodes that are currently held down.
     this.heldKeys = new Set();
 
     this.keyMap = {
@@ -15,6 +18,15 @@ function Input(game) {
     this.mouseDown = false;
     this.mousePosition = null;
 }
+
+Input.prototype.getKeyCode = function(letter) {
+    var idx = alphabet.indexOf(letter.toLowerCase());
+    if (idx > -1) {
+        return idx + 65;
+    }
+
+    return null;
+};
 
 
 Input.prototype.onMouseDown = function(event) {
@@ -60,7 +72,7 @@ Input.prototype._bindListeners = function() {
 }
 
 Input.prototype.isDown = function(key) {
-    return this.heldKeys.has(this.keyMap[key]);
+    return this.heldKeys.has(this.getKeyCode(key));
 };
 
 Input.prototype.anyKeysDown = function() {

@@ -11,7 +11,8 @@ function ChunkManager(renderer, world_dimensions, chunk_dimensions) {
     this.width = (world_dimensions.x / this.chunk_width) / 2;
     this.height = (world_dimensions.y / this.chunk_height) / 2;
 
-    this.chunks = {};
+    // this.chunks = {};
+    this.chunks = [];
 
     this.currentChunk = null;
     this.stage = null;
@@ -19,14 +20,14 @@ function ChunkManager(renderer, world_dimensions, chunk_dimensions) {
 
 // OVERRIDES
 
-ChunkManager.prototype.init = function(stage, num_chunks) {
+ChunkManager.prototype.init = function(stage, starting_chunks) {
     var self = this;
 
     self.stage = stage;
     var chunkPromises = [];
 
-    for (var i = 0; i < num_chunks; i++) {
-        for (var j = 0; j < num_chunks; j++) {
+    for (var i = 0; i < starting_chunks; i++) {
+        for (var j = 0; j < starting_chunks; j++) {
             var c = new Chunk(i, j, self.chunk_width, self.chunk_height);
             var prom = c.generate(self.renderer);
             chunkPromises.push(prom);
@@ -35,11 +36,9 @@ ChunkManager.prototype.init = function(stage, num_chunks) {
 
     return Promise.all(chunkPromises).then(function(chunks) {
         chunks.forEach(function(chunk, index) {
-            var x = chunk.position.x / self.chunk_width;
-            var y = chunk.position.y / self.chunk_height;
 
-            self.chunks[x+"|"+y] = chunk;
-            stage.addChild(chunk);
+            self.addChunk(chunk);
+            stage.addChild(chunk.sprite);
         });
 
         return self.chunks;
@@ -54,9 +53,9 @@ ChunkManager.prototype.generateChunks = function(chunkIndexes) {
         if (Math.abs(chunkIndex.x) <= (self.width + 1) && Math.abs(chunkIndex.y) <= (self.height + 1)) {
 
             var c = new Chunk(chunkIndex.x, chunkIndex.y, self.chunk_width, self.chunk_height);
-            c.generate(self.renderer).then(function(sprite) {
-                self.chunks[chunkIndex.x+"|"+chunkIndex.y] = sprite
-                self.stage.addChild(sprite);
+            c.generate(self.renderer).then(function(chunk) {
+                self.addChunk(chunk);
+                self.stage.addChild(chunk.sprite);
             });
         }
     });
@@ -64,15 +63,31 @@ ChunkManager.prototype.generateChunks = function(chunkIndexes) {
 
 ChunkManager.prototype.update = function(deltaTime, player) {
     if (this.currentChunk) {
-        if (!this.chunkContainsPoint(this.currentChunk, player.getBody().position)) {
-            var currentChunk = this.getChunkFromPoint(player.getBody().position);
+        if (!this.chunkContainsPoint(this.currentChunk, player.getPosition())) {
+            var currentChunk = this.getChunkFromPoint(player.getPosition());
             this.setCurrentChunk(currentChunk);
         }
     } else {
-        var currentChunk = this.getChunkFromPoint(player.getBody().position);
+        var currentChunk = this.getChunkFromPoint(player.getPosition());
         this.setCurrentChunk(currentChunk);
     }
 }
+
+ChunkManager.prototype.addChunk = function(chunk) {
+    if (this.chunks[chunk.x] == null) {
+        this.chunks[chunk.x] = [];
+    }
+
+    this.chunks[chunk.x][chunk.y] = chunk;
+};
+
+ChunkManager.prototype.getChunk = function(x, y) {
+    try {
+        return this.chunks[x][y];
+    } catch (e) {
+        return null;
+    }
+};
 
 // LOCAL
 
@@ -84,7 +99,7 @@ ChunkManager.prototype.getChunkFromPoint = function(point) {
     var x = Math.floor(point.x / self.chunk_width);
     var y = Math.floor(point.y / self.chunk_height);
 
-    var chunk = self.chunks[x+"|"+y];
+    var chunk = self.getChunk(x, y);
     if (chunk && self.chunkContainsPoint(chunk, point)) {
         output = chunk;
     }
@@ -110,13 +125,16 @@ ChunkManager.prototype.setCurrentChunk = function(chunk) {
 
 ChunkManager.prototype.getMissingNeighborIndexes = function(chunk, neighbors) {
     var self = this;
-    var chunk_x = chunk.position.x / chunk.width;
-    var chunk_y = chunk.position.y / chunk.height;
+
+    var chunk_index = chunk.getIndex();
+    var chunk_x = chunk_index.x; //chunk.position.x / chunk.width;
+    var chunk_y = chunk_index.y; //chunk.position.y / chunk.height;
 
     var output = [];
     for (var i = -1; i < 2; i++) {
         for (var j = -1; j < 2; j++) {
-            if (!self.chunks[(chunk_x + i)+"|"+(chunk_y + j)]) {
+            var c = self.getChunk(chunk_x + i, chunk_y + j);
+            if (!c) {
                 output.push({x : chunk_x + i, y : chunk_y + j});
             }
         }
@@ -126,61 +144,55 @@ ChunkManager.prototype.getMissingNeighborIndexes = function(chunk, neighbors) {
 }
 
 ChunkManager.prototype.chunkContainsPoint = function(chunk, point) {
-    if (chunk.position.x <= point.x &&
-        chunk.position.x + chunk.width > point.x &&
-        chunk.position.y <= point.y &&
-        chunk.position.y + chunk.height > point.y) {
-        return true;
-    }
-
-    return false;
+    return chunk.containsPoint(point);
 };
 
 ChunkManager.prototype.getNeighborsForChunk = function(chunk, diagonal) {
-    var x = chunk.position.x / chunk.width;
-    var y = chunk.position.y / chunk.height;
+    var chunk_index = chunk.getIndex();
+    var x = chunk_index.x; // chunk.position.x / chunk.width;
+    var y = chunk_index.y; // chunk.position.y / chunk.height;
     var output = [];
     
     //west
-    if (this.chunks[(x-1)+"|"+y]) {
-        output.push(this.chunks[(x-1)+"|"+y]);
+    if (this.getChunk((x-1), y)) {
+        output.push(this.getChunk((x-1), y));
     }
     
     //north
-    if (this.chunks[x+"|"+(y-1)]) {
-        output.push(this.chunks[x+"|"+(y-1)]);
+    if (this.getChunk(x, (y-1))) {
+        output.push(this.getChunk(x, (y-1)));
     }
     
     //east
-    if (this.chunks[(x+1)+"|"+y]) {
-        output.push(this.chunks[(x+1)+"|"+y]);
+    if (this.getChunk((x+1), y)) {
+        output.push(this.getChunk((x+1), y));
     }
     
     //south
-    if (this.chunks[x+"|"+(y+1)]) {
-        output.push(this.chunks[x+"|"+(y+1)]);
+    if (this.getChunk(x, (y+1))) {
+        output.push(this.getChunk(x, (y+1)));
     }
     
 
     if (diagonal) {
         //northwest
-        if (this.chunks[(x-1)+"|"+(y-1)]) {
-            output.push(this.chunks[(x-1)+"|"+(y-1)]);
+        if (this.getChunk((x-1), (y-1))) {
+            output.push(this.getChunk((x-1), (y-1)));
         }
         
         //northeast
-        if (this.chunks[(x+1)+"|"+(y+1)]) {
-            output.push(this.chunks[(x+1)+"|"+(y+1)]);
+        if (this.getChunk((x+1), (y+1))) {
+            output.push(this.getChunk((x+1), (y+1)));
         }
         
         //southwest
-        if (this.chunks[(x-1)+"|"+(y+1)]) {
-            output.push(this.chunks[(x-1)+"|"+(y+1)]);
+        if (this.getChunk((x-1), (y+1))) {
+            output.push(this.getChunk((x-1), (y+1)));
         }
         
         //southeast
-        if (this.chunks[(x+1)+"|"+(y-1)]) {
-            output.push(this.chunks[(x+1)+"|"+(y-1)]);
+        if (this.getChunk((x+1), (y-1))) {
+            output.push(this.getChunk((x+1), (y-1)));
         }
     }
 

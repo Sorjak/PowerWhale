@@ -5,8 +5,11 @@ var PIXI = require('pixi.js'),
 
 var Game = require('./game.js');
 
-var GAME_WIDTH = 800;
-var GAME_HEIGHT = 600;
+var SCREEN_WIDTH = 800;
+var SCREEN_HEIGHT = 600;
+
+var WORLD_WIDTH = 24000;
+var WORLD_HEIGHT = 24000;
 
 var rendererOptions = {
     antialiasing: true,
@@ -14,7 +17,7 @@ var rendererOptions = {
     resolution: window.devicePixelRatio,
     autoResize: true,
 };
-var RENDERER = new PIXI.autoDetectRenderer(GAME_WIDTH, GAME_HEIGHT, rendererOptions);
+var RENDERER = new PIXI.autoDetectRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, rendererOptions);
 
 Matter.use(MatterAttractors);
 
@@ -22,7 +25,7 @@ var engine = Matter.Engine.create($("#pixi-canvas"));
 
 $("#pixi-canvas").append(RENDERER.view);
 
-var game = new Game(RENDERER, engine.world, GAME_WIDTH, GAME_HEIGHT);
+var game = new Game(RENDERER, engine.world, SCREEN_WIDTH, SCREEN_HEIGHT, WORLD_WIDTH, WORLD_HEIGHT);
 var animFrame = null;
 
 var mainLoop = function() {

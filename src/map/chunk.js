@@ -8,6 +8,7 @@ function Chunk(x, y, width, height) {
     this.height = height;
 
     this.container = new PIXI.Container();
+    this.sprite = null;
 }
 
 Chunk.prototype.generate = function(renderer) {
@@ -28,15 +29,41 @@ Chunk.prototype.generate = function(renderer) {
         self.container.addChild(stars);
 
         var tex = renderer.generateTexture(self.container);
-        var output = new PIXI.Sprite(tex);
-        output.position = new PIXI.Point(
-            self.x * self.width, 
-            self.y * self.height
-        );
-        
-        resolve(output);
+
+        self.sprite = new PIXI.Sprite(tex);
+        self.sprite.position = self.getScreenPosition();
+        resolve(self);
     });
 }
+
+Chunk.prototype.getScreenPosition = function() {
+    return {x: (this.x * this.width), y: (this.y * this.height)};
+    // return this.sprite.position;
+};
+
+Chunk.prototype.getIndex = function() {
+    return {x: this.x, y: this.y};
+};
+
+Chunk.prototype.getIndexString = function() {
+    return this.x + "|" + this.y;
+};
+
+Chunk.prototype.containsPoint = function(point) {
+    var chunk_pos = this.getScreenPosition();
+
+    if (chunk_pos.x <= point.x &&
+        chunk_pos.x + this.width > point.x &&
+        chunk_pos.y <= point.y &&
+        chunk_pos.y + this.height > point.y) {
+        return true;
+    }
+
+    return false;
+
+};
+
+// PRIVATE
 
 Chunk.prototype._createStars = function(num_stars) {
     var self = this;
