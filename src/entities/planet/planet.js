@@ -8,11 +8,14 @@ var Bodies  = require('matter-js').Bodies,
     Vector  = require('matter-js').Vector;
 
 
-function Planet(position) {
+function Planet(position, dimensions) {
     Entity.call(this);
 
     this.startPos = position;
+    this.dimensions = dimensions;
     this.body = null;
+
+    this.mass = 10e24;
 
     this.tags.push("planet");
 }
@@ -28,7 +31,10 @@ Planet.prototype.init = function(stage) {
     return Entity.prototype.init.call(this, stage, "../images/mars.png")
     .then(function() {
         
-        self.sprite.scale = new PIXI.Point(2, 2);
+        var maxScale = Math.min(self.dimensions.x / self.sprite.width, self.dimensions.y / self.sprite.height);
+        var scaleFactor = Math.random() * maxScale;
+
+        self.sprite.scale = new PIXI.Point(scaleFactor, scaleFactor);
         var planetRadius = self.sprite.width / 2;
         self.body = Bodies.circle( self.startPos.x, self.startPos.y, planetRadius, {
             plugin: {
@@ -36,9 +42,10 @@ Planet.prototype.init = function(stage) {
             }
         });
 
-        console.log(self.startPos);
+        self.mass = planetRadius * 10;
 
         Body.setStatic(self.body, true);
+        console.log(self.body.position);
 
         return self;
     });
@@ -60,24 +67,24 @@ Planet.prototype.debug = function() {
 
 
 Planet.prototype.getGravity = function(planet, other) {
-    
+  
     var towardPlanet = Vector.sub(planet.position, other.position);
     var distance = Vector.magnitude(towardPlanet);
 
-    if (distance <= 1500) {
-        var intensity = Utils.bezierCube(
-            {x: 0, y:1},
-            {x: 0, y:0},
-            {x: 0, y:0},
-            {x: 1, y:0},
-            ((distance - planet.circleRadius - 10) / 1500)
-        );
+    // var intensity = Utils.bezierCube(
+    //     {x: 0, y:1},
+    //     {x: 0, y:0},
+    //     {x: 0, y:0},
+    //     {x: 1, y:0},
+    //     distance
+    // ).y * 1e-3;
 
-        var normalized = Vector.normalise(towardPlanet);
-        return Vector.mult(normalized, intensity.y * 1e-3);
-    }
+    var intensity = Utils.gravityForce(15, other.mass, distance);
+    
+    var normalized = Vector.normalise(towardPlanet);
+    return Vector.mult(normalized, intensity);
 
-    return {x: 0, y: 0};
+    // return {x: 0, y: 0};
 }
 
 

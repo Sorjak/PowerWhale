@@ -7313,7 +7313,7 @@
 /***/ function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/**
-	 * isMobile.js v0.4.1
+	 * isMobile.js v0.4.0
 	 *
 	 * A simple library to detect Apple phones and tablets,
 	 * Android phones and tablets, other mobile devices (like blackberry, mini-opera and windows phone),
@@ -7332,7 +7332,7 @@
 	        android_tablet      = /Android/i,
 	        amazon_phone        = /(?=.*\bAndroid\b)(?=.*\bSD4930UR\b)/i,
 	        amazon_tablet       = /(?=.*\bAndroid\b)(?=.*\b(?:KFOT|KFTT|KFJWI|KFJWA|KFSOWI|KFTHWI|KFTHWA|KFAPWI|KFAPWA|KFARWI|KFASWI|KFSAWI|KFSAWA)\b)/i,
-	        windows_phone       = /Windows Phone/i,
+	        windows_phone       = /IEMobile/i,
 	        windows_tablet      = /(?=.*\bWindows\b)(?=.*\bARM\b)/i, // Match 'Windows' AND 'ARM'
 	        other_blackberry    = /BlackBerry/i,
 	        other_blackberry_10 = /BB10/i,
@@ -49428,8 +49428,6 @@
 	    if ((clickPoint.x > 0 && clickPoint.y > 0) &&
 	        (clickPoint.x <= self.screen_width && clickPoint.y <= self.screen_height)) {
 
-	        // This is to check if we are clicking empty space
-	        // if (event.target.parent == null) {
 	            var worldPoint = self.camera.screenToWorld(clickPoint);
 
 	            if (event.type == "pointerdown") {
@@ -49440,7 +49438,6 @@
 	                self.ui.toggleLaunchLine(false);
 	                self.player.launch(worldPoint);
 	            }
-	        // }
 	    } else {
 	        if (event.type == "pointerup") {
 	            self.ui.toggleLaunchLine(false);
@@ -49519,7 +49516,7 @@
 	            0, 0, 24
 	        );
 
-	        self.body.frictionAir = .000000001;
+	        self.body.frictionAir = 1e-6;
 
 	        
 	        stage.addChild(self.info);
@@ -49705,7 +49702,6 @@
 	        self.sprite = new PIXI.Sprite.fromImage(image_path);
 	        self.sprite.anchor = new PIXI.Point(.5, .5);
 	        self.sprite.interactive = true;
-
 
 	        self._bindListeners();
 
@@ -62894,6 +62890,10 @@
 	        y = (1-t)*(1-t)*(1-t)*p1.y + 3*(1-t)*(1-t)*t*p2.y + 3*(1-t)*t*t*p3.y + t*t*t*p4.y;
 
 	        return {x : x, y : y};
+	    },
+
+	    gravityForce : function(m1, m2, radius) {
+	        return ((m1 * m2) / (radius * radius));
 	    }
 	}
 
@@ -63123,12 +63123,20 @@
 	UI.prototype.drawDebugText = function(rect, player) {
 	    var self = this;
 
-	    self.debugText.position = {x: rect.x + rect.width - 200, y: rect.y + rect.height - 20};
+	    try {
+	        self.debugText.position = {x: rect.x + 10, y: rect.y + rect.height - 20};
 
-	    var playerPos = player.getPosition();
-	    var shortPos = {x: Math.floor(playerPos.x), y: Math.floor(playerPos.y) };
+	        var playerPos = player.getPosition();
+	        var shortPos = {x: Math.floor(playerPos.x), y: Math.floor(playerPos.y) };
 
-	    self.debugText.text = "x: " + shortPos.x + ", y: " + shortPos.y;
+	        var currentChunk = self.game.chunkManager.currentChunk;
+
+	        var output = "x: " + shortPos.x + ", y: " + shortPos.y;
+	        output += " | Chunk: " + currentChunk.x + ", " + currentChunk.y;
+	        self.debugText.text = output;
+	    } catch (e) {
+	        
+	    }
 	};
 
 	UI.prototype.getUIRectangle = function() {
@@ -63582,12 +63590,6 @@
 	        );
 
 	        Body.rotate(self.body, Math.random() * 3);
-
-	        // self.debugText = new PIXI.Text('',{fontFamily : 'Arial', fontSize: 12, fill : 0xffffff, align : 'center'});
-	        // self.debugText.position = new PIXI.Point(20, 10);
-
-	        // self.sprite.addChild(self.debugText);
-
 	        return self;
 	    });
 	};
@@ -63849,6 +63851,8 @@
 	    self.stage = stage;
 	    var planetPromises = [];
 
+
+	    var planetDimensions = {x: self.game.screen_width, y: self.game.screen_height};
 	    for (var i = 0; i < num_planets; i++) {
 	        var randx = Math.floor((Math.random() * 20000) - 10000);
 	        var randy = Math.floor((Math.random() * 20000) - 10000);
@@ -63857,7 +63861,7 @@
 	            randy = 2000;
 	        }
 
-	        var planet = new Planet({x: randx, y: randy});
+	        var planet = new Planet({x: randx, y: randy}, planetDimensions);
 	        var planetProm = planet.init(stage).then(function(new_planet) {
 	            self.entities.push(new_planet);
 	            World.addBody(self.world, new_planet.body);
@@ -63926,11 +63930,14 @@
 	    Vector  = __webpack_require__(186).Vector;
 
 
-	function Planet(position) {
+	function Planet(position, dimensions) {
 	    Entity.call(this);
 
 	    this.startPos = position;
+	    this.dimensions = dimensions;
 	    this.body = null;
+
+	    this.mass = 10e24;
 
 	    this.tags.push("planet");
 	}
@@ -63946,7 +63953,10 @@
 	    return Entity.prototype.init.call(this, stage, "../images/mars.png")
 	    .then(function() {
 	        
-	        self.sprite.scale = new PIXI.Point(2, 2);
+	        var maxScale = Math.min(self.dimensions.x / self.sprite.width, self.dimensions.y / self.sprite.height);
+	        var scaleFactor = Math.random() * maxScale;
+
+	        self.sprite.scale = new PIXI.Point(scaleFactor, scaleFactor);
 	        var planetRadius = self.sprite.width / 2;
 	        self.body = Bodies.circle( self.startPos.x, self.startPos.y, planetRadius, {
 	            plugin: {
@@ -63954,9 +63964,10 @@
 	            }
 	        });
 
-	        console.log(self.startPos);
+	        self.mass = planetRadius * 10;
 
 	        Body.setStatic(self.body, true);
+	        console.log(self.body.position);
 
 	        return self;
 	    });
@@ -63978,24 +63989,24 @@
 
 
 	Planet.prototype.getGravity = function(planet, other) {
-	    
+	  
 	    var towardPlanet = Vector.sub(planet.position, other.position);
 	    var distance = Vector.magnitude(towardPlanet);
 
-	    if (distance <= 1500) {
-	        var intensity = Utils.bezierCube(
-	            {x: 0, y:1},
-	            {x: 0, y:0},
-	            {x: 0, y:0},
-	            {x: 1, y:0},
-	            ((distance - planet.circleRadius - 10) / 1500)
-	        );
+	    // var intensity = Utils.bezierCube(
+	    //     {x: 0, y:1},
+	    //     {x: 0, y:0},
+	    //     {x: 0, y:0},
+	    //     {x: 1, y:0},
+	    //     distance
+	    // ).y * 1e-3;
 
-	        var normalized = Vector.normalise(towardPlanet);
-	        return Vector.mult(normalized, intensity.y * 1e-3);
-	    }
+	    var intensity = Utils.gravityForce(15, other.mass, distance);
+	    
+	    var normalized = Vector.normalise(towardPlanet);
+	    return Vector.mult(normalized, intensity);
 
-	    return {x: 0, y: 0};
+	    // return {x: 0, y: 0};
 	}
 
 

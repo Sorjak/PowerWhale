@@ -23,6 +23,8 @@ PlanetManager.prototype.init = function(stage, num_planets) {
     self.stage = stage;
     var planetPromises = [];
 
+
+    var planetDimensions = {x: self.game.screen_width, y: self.game.screen_height};
     for (var i = 0; i < num_planets; i++) {
         var randx = Math.floor((Math.random() * 20000) - 10000);
         var randy = Math.floor((Math.random() * 20000) - 10000);
@@ -31,7 +33,7 @@ PlanetManager.prototype.init = function(stage, num_planets) {
             randy = 2000;
         }
 
-        var planet = new Planet({x: randx, y: randy});
+        var planet = new Planet({x: randx, y: randy}, planetDimensions);
         var planetProm = planet.init(stage).then(function(new_planet) {
             self.entities.push(new_planet);
             World.addBody(self.world, new_planet.body);

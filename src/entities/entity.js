@@ -37,7 +37,6 @@ Entity.prototype.init = function(stage, image_path) {
         self.sprite.anchor = new PIXI.Point(.5, .5);
         self.sprite.interactive = true;
 
-
         self._bindListeners();
 
         stage.addChild(self.sprite);

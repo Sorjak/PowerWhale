@@ -77,12 +77,20 @@ UI.prototype.drawEnergyBox = function(rect, level) {
 UI.prototype.drawDebugText = function(rect, player) {
     var self = this;
 
-    self.debugText.position = {x: rect.x + rect.width - 200, y: rect.y + rect.height - 20};
+    try {
+        self.debugText.position = {x: rect.x + 10, y: rect.y + rect.height - 20};
 
-    var playerPos = player.getPosition();
-    var shortPos = {x: Math.floor(playerPos.x), y: Math.floor(playerPos.y) };
+        var playerPos = player.getPosition();
+        var shortPos = {x: Math.floor(playerPos.x), y: Math.floor(playerPos.y) };
 
-    self.debugText.text = "x: " + shortPos.x + ", y: " + shortPos.y;
+        var currentChunk = self.game.chunkManager.currentChunk;
+
+        var output = "x: " + shortPos.x + ", y: " + shortPos.y;
+        output += " | Chunk: " + currentChunk.x + ", " + currentChunk.y;
+        self.debugText.text = output;
+    } catch (e) {
+        
+    }
 };
 
 UI.prototype.getUIRectangle = function() {

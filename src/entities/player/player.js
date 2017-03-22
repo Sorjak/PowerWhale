@@ -48,7 +48,7 @@ Player.prototype.init = function(stage) {
             0, 0, 24
         );
 
-        self.body.frictionAir = .000000001;
+        self.body.frictionAir = 1e-6;
 
         
         stage.addChild(self.info);

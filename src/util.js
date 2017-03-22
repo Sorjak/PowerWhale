@@ -15,6 +15,10 @@ var Util = {
         y = (1-t)*(1-t)*(1-t)*p1.y + 3*(1-t)*(1-t)*t*p2.y + 3*(1-t)*t*t*p3.y + t*t*t*p4.y;
 
         return {x : x, y : y};
+    },
+
+    gravityForce : function(m1, m2, radius) {
+        return ((m1 * m2) / (radius * radius));
     }
 }
 

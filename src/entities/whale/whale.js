@@ -39,12 +39,6 @@ Whale.prototype.init = function(stage) {
         );
 
         Body.rotate(self.body, Math.random() * 3);
-
-        // self.debugText = new PIXI.Text('',{fontFamily : 'Arial', fontSize: 12, fill : 0xffffff, align : 'center'});
-        // self.debugText.position = new PIXI.Point(20, 10);
-
-        // self.sprite.addChild(self.debugText);
-
         return self;
     });
 };

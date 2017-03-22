@@ -154,8 +154,6 @@ Game.prototype.handleMouse = function(event) {
     if ((clickPoint.x > 0 && clickPoint.y > 0) &&
         (clickPoint.x <= self.screen_width && clickPoint.y <= self.screen_height)) {
 
-        // This is to check if we are clicking empty space
-        // if (event.target.parent == null) {
             var worldPoint = self.camera.screenToWorld(clickPoint);
 
             if (event.type == "pointerdown") {
@@ -166,7 +164,6 @@ Game.prototype.handleMouse = function(event) {
                 self.ui.toggleLaunchLine(false);
                 self.player.launch(worldPoint);
             }
-        // }
     } else {
         if (event.type == "pointerup") {
             self.ui.toggleLaunchLine(false);
