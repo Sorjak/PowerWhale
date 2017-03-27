@@ -7313,7 +7313,7 @@
 /***/ function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/**
-	 * isMobile.js v0.4.0
+	 * isMobile.js v0.4.1
 	 *
 	 * A simple library to detect Apple phones and tablets,
 	 * Android phones and tablets, other mobile devices (like blackberry, mini-opera and windows phone),
@@ -7332,7 +7332,7 @@
 	        android_tablet      = /Android/i,
 	        amazon_phone        = /(?=.*\bAndroid\b)(?=.*\bSD4930UR\b)/i,
 	        amazon_tablet       = /(?=.*\bAndroid\b)(?=.*\b(?:KFOT|KFTT|KFJWI|KFJWA|KFSOWI|KFTHWI|KFTHWA|KFAPWI|KFAPWA|KFARWI|KFASWI|KFSAWI|KFSAWA)\b)/i,
-	        windows_phone       = /IEMobile/i,
+	        windows_phone       = /Windows Phone/i,
 	        windows_tablet      = /(?=.*\bWindows\b)(?=.*\bARM\b)/i, // Match 'Windows' AND 'ARM'
 	        other_blackberry    = /BlackBerry/i,
 	        other_blackberry_10 = /BB10/i,
@@ -62873,6 +62873,8 @@
 /* 193 */
 /***/ function(module, exports) {
 
+	const GRAV_CONSTANT = 6e-11;
+
 	var Util = {
 		lerp : function(a, b, t) {
 			return a + t * (b - a);
@@ -62893,7 +62895,7 @@
 	    },
 
 	    gravityForce : function(m1, m2, radius) {
-	        return ((m1 * m2) / (radius * radius));
+	        return ((GRAV_CONSTANT * m1 * m2) / (radius * radius));
 	    }
 	}
 
@@ -63113,7 +63115,6 @@
 
 	    self.energyBox.clear();
 	    self.energyBox.lineStyle(1, 0xffffff, 1);
-	    // self.energyBox.drawRect(boundingRect.x, boundingRect.y, boundingRect.width, boundingRect.height);
 	    self.energyBox.drawShape(boundingRect);
 
 	    self.energyBox.beginFill(0xffffff, 1);
@@ -63937,8 +63938,6 @@
 	    this.dimensions = dimensions;
 	    this.body = null;
 
-	    this.mass = 10e24;
-
 	    this.tags.push("planet");
 	}
 
@@ -63964,10 +63963,8 @@
 	            }
 	        });
 
-	        self.mass = planetRadius * 10;
-
 	        Body.setStatic(self.body, true);
-	        console.log(self.body.position);
+	        console.log("x: " + self.body.position.x + ", y:" + self.body.position.y + " mass:" + (Planet.getMass(planetRadius)) / 1e11);
 
 	        return self;
 	    });
@@ -63988,20 +63985,18 @@
 	};
 
 
+	Planet.getMass = function(radius) {
+	    return 1e11 * ((radius / 100) * 5);
+	};
+
 	Planet.prototype.getGravity = function(planet, other) {
 	  
 	    var towardPlanet = Vector.sub(planet.position, other.position);
 	    var distance = Vector.magnitude(towardPlanet);
 
-	    // var intensity = Utils.bezierCube(
-	    //     {x: 0, y:1},
-	    //     {x: 0, y:0},
-	    //     {x: 0, y:0},
-	    //     {x: 1, y:0},
-	    //     distance
-	    // ).y * 1e-3;
+	    var planetMass = Planet.getMass(planet.circleRadius);
 
-	    var intensity = Utils.gravityForce(15, other.mass, distance);
+	    var intensity = Utils.gravityForce(planetMass, other.mass, distance);
 	    
 	    var normalized = Vector.normalise(towardPlanet);
 	    return Vector.mult(normalized, intensity);

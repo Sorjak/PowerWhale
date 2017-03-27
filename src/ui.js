@@ -67,7 +67,6 @@ UI.prototype.drawEnergyBox = function(rect, level) {
 
     self.energyBox.clear();
     self.energyBox.lineStyle(1, 0xffffff, 1);
-    // self.energyBox.drawRect(boundingRect.x, boundingRect.y, boundingRect.width, boundingRect.height);
     self.energyBox.drawShape(boundingRect);
 
     self.energyBox.beginFill(0xffffff, 1);

@@ -1,3 +1,5 @@
+const GRAV_CONSTANT = 6e-11;
+
 var Util = {
 	lerp : function(a, b, t) {
 		return a + t * (b - a);
@@ -18,7 +20,7 @@ var Util = {
     },
 
     gravityForce : function(m1, m2, radius) {
-        return ((m1 * m2) / (radius * radius));
+        return ((GRAV_CONSTANT * m1 * m2) / (radius * radius));
     }
 }
 

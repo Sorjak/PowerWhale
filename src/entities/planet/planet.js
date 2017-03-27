@@ -15,8 +15,6 @@ function Planet(position, dimensions) {
     this.dimensions = dimensions;
     this.body = null;
 
-    this.mass = 10e24;
-
     this.tags.push("planet");
 }
 
@@ -42,10 +40,8 @@ Planet.prototype.init = function(stage) {
             }
         });
 
-        self.mass = planetRadius * 10;
-
         Body.setStatic(self.body, true);
-        console.log(self.body.position);
+        console.log("x: " + self.body.position.x + ", y:" + self.body.position.y + " mass:" + (Planet.getMass(planetRadius)) / 1e11);
 
         return self;
     });
@@ -66,20 +62,18 @@ Planet.prototype.debug = function() {
 };
 
 
+Planet.getMass = function(radius) {
+    return 1e11 * ((radius / 100) * 5);
+};
+
 Planet.prototype.getGravity = function(planet, other) {
   
     var towardPlanet = Vector.sub(planet.position, other.position);
     var distance = Vector.magnitude(towardPlanet);
 
-    // var intensity = Utils.bezierCube(
-    //     {x: 0, y:1},
-    //     {x: 0, y:0},
-    //     {x: 0, y:0},
-    //     {x: 1, y:0},
-    //     distance
-    // ).y * 1e-3;
+    var planetMass = Planet.getMass(planet.circleRadius);
 
-    var intensity = Utils.gravityForce(15, other.mass, distance);
+    var intensity = Utils.gravityForce(planetMass, other.mass, distance);
     
     var normalized = Vector.normalise(towardPlanet);
     return Vector.mult(normalized, intensity);
