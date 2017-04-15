@@ -19,12 +19,17 @@ module.exports = {
     path.resolve(__dirname, 'node_modules/machina')
   ],
 
+  resolve: {
+    extensions: ["", ".webpack.js", ".web.js", ".ts", ".tsx", ".js"]
+  },
+
   module: {
     loaders: [
       {
         test: /\.json$/,
         loader: 'json'
-      }
+      },
+      { test: /\.tsx?$/, loader: "ts-loader" }
     ],
 
     postLoaders: [

@@ -5,7 +5,7 @@ var World   = require("matter-js").World,
 
 var Player  = require("./entities/player/player.js"),
     Camera  = require('./camera.js'),
-    Input   = require('./input.js'),
+    Input   = require('./input.ts'),
     UI      = require('./ui.js'),
     ChunkManager    = require('./map/chunkManager.js'),
     WhaleManager    = require('./entities/whale/whaleManager.js'),

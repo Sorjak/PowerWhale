@@ -1,4 +1,4 @@
-alphabet = "abcdefghijklmnopqrstuvwxyz";
+var alphabet = "abcdefghijklmnopqrstuvwxyz";
 
 function Input(game) {
     this.game = game;
